@@ -1,0 +1,276 @@
+// state.js for Legato.
+//
+// THE CONTRACT. Three branches build against this shape; lock it before anyone diverges.
+// Prose, reasoning, and worked examples live in docs/DATA-MODEL.md — this file is the
+// authoritative TYPES + factories. If the two ever disagree, these types win.
+//
+// One line: UI mutates `progression` -> compile() -> one segment list -> render + audio + bars.
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TYPES (JSDoc so Codex + editors get autocomplete without a build step)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * @typedef {'Major'|'Minor'|'Dom7'|'Maj7'|'Min7'|'Dim'|'Dim7'|'m7b5'|'Sus2'|'Sus4'|'Aug'} Quality
+ */
+
+/**
+ * @typedef {'passingDim'|'secondaryDom'|'tritoneSub'|'ii_v_i'|'susPassing'|'leadingTone'|'scaleRun'|'arpBridge'} TechniqueId
+ */
+
+/**
+ * @typedef {Object} TimeSig
+ * @property {number} num  Numerator (e.g. 5 in 5/4).
+ * @property {number} den  Denominator (e.g. 4 in 5/4).
+ */
+
+/**
+ * @typedef {Object} Settings
+ * @property {number}  tempo     BPM. PLAYER-ONLY — compile() ignores it.
+ * @property {TimeSig} timeSig   Structural. measureLength (quarter-beats) = num * 4 / den.
+ * @property {number}  key       Key signature on the circle of fifths, -7..+7. Sharps +, flats −.
+ *                               SPELLING ONLY (MIDI -> sharp/flat keystring). Never audio/voicing.
+ * @property {'auto'|'treble'|'bass'} clef  One clef, no grand staff. 'auto' resolved at render time.
+ */
+
+/**
+ * Display-only name hint. compile()/audio/render NEVER read this. Set by the quality-assisted
+ * input path so a row names itself instantly without the detector. Drop it if the user edits
+ * `notes` so they no longer match.
+ * @typedef {Object} ChordHint
+ * @property {number}  rootMidi
+ * @property {Quality} quality
+ */
+
+/**
+ * The notes ARE the chord. Never re-voiced — what's stored is what plays. Voicing, octave,
+ * doubling, and inversion are all encoded implicitly in `notes`.
+ * @typedef {Object} Chord
+ * @property {string}     id     Stable, within-project-unique. SortableJS + edit/delete key.
+ * @property {number[]}   notes  Exact MIDI notes (full keyboard 21..108).
+ * @property {number}     bars   Duration in bars (min 0.5, step 0.5).
+ * @property {ChordHint} [hint]  Optional display-only name hint.
+ */
+
+/**
+ * @typedef {Object} Progression
+ * @property {Settings}                 settings
+ * @property {Chord[]}                  chords
+ * @property {Array<TechniqueId|null>}  seams   length === chords.length - 1. Stores KEYS, not notes.
+ */
+
+/**
+ * @typedef {Object} Project
+ * @property {string}      id
+ * @property {string}      name
+ * @property {string}      createdAt   ISO
+ * @property {string}      updatedAt   ISO
+ * @property {Progression} progression
+ */
+
+/**
+ * compile()'s output unit: one atomic, fully-resolved, notatable-and-playable event.
+ * @typedef {Object} Segment
+ * @property {number[]}    notes         Resolved pitches (post voice-leading for techniques).
+ * @property {number}      durationBeats One standard note-value (from [4,2,1,0.5,0.25]).
+ * @property {boolean}     isTechnique   Colour + whether the coach explains it.
+ * @property {string}      sourceId      TIES: adjacent segments sharing this get a StaveTie.
+ * @property {number|null} seamIndex     Which seam produced it (coach lookup); null for user chords.
+ * @property {number}      measureIndex  Which stave this draws on.
+ * @property {number}      startBeat     MEASURE-RELATIVE. Absolute = measureIndex*measureLength + startBeat.
+ */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONSTANTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const SCHEMA_VERSION = 1;
+
+/** Ordered set of technique keys. The registry bodies live in engine/techniques.js. */
+export const TECHNIQUE_IDS = /** @type {const} */ ([
+    'passingDim', 'secondaryDom', 'tritoneSub', 'ii_v_i',
+    'susPassing', 'leadingTone', 'scaleRun', 'arpBridge',
+]);
+
+/** Greedy decomposition values, largest-first. 0.25 (sixteenth) MUST stay in this list. */
+export const STANDARD_DURATIONS = [4, 2, 1, 0.5, 0.25];
+
+/** Closest-voicing search window (narrower than the 21..108 input range, on purpose). */
+export const VOICING_MIN_MIDI = 40;
+export const VOICING_MAX_MIDI = 88;
+export const VOICING_MAX_SPAN = 16; // semitones; discard wider candidates
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DERIVED HELPERS (pure)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Quarter-beats per measure for a given time signature. e.g. 5/4 -> 5, 12/8 -> 6. */
+export function measureLength(timeSig) {
+    return timeSig.num * 4 / timeSig.den;
+}
+
+/** Total quarter-beats a chord nominally occupies before any technique borrows from its tail. */
+export function chordTotalBeats(chord, timeSig) {
+    return chord.bars * measureLength(timeSig);
+}
+
+/**
+ * Beats a technique may borrow from the departing chord's tail.
+ * Always leave >=1 beat sounding; never borrow >4.
+ */
+export function availableBeats(departingTotalBeats) {
+    return Math.max(0, Math.min(departingTotalBeats - 1, 4));
+}
+
+let _idCounter = 0;
+/** Simple stable id. Swap for crypto.randomUUID() if you prefer. */
+export function newId(prefix = 'c') {
+    return `${ prefix }${ (++_idCounter).toString(36) }${ Date.now().toString(36) }`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FACTORIES — always build state through these so the shape stays consistent
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** @returns {Settings} */
+export function makeSettings(overrides = {}) {
+    return {
+        tempo: 100,
+        timeSig: { num: 4, den: 4 },
+        key: 0,
+        clef: 'auto',
+        ...overrides,
+    };
+}
+
+/**
+ * @param {number[]} notes
+ * @param {number}   bars
+ * @param {ChordHint} [hint]
+ * @returns {Chord}
+ */
+export function makeChord(notes, bars = 1, hint) {
+    return { id: newId('c'), notes: [...notes], bars, ...(hint ? { hint } : {}) };
+}
+
+/** @returns {Progression} */
+export function makeProgression(overrides = {}) {
+    return {
+        settings: makeSettings(),
+        chords: [],
+        seams: [],
+        ...overrides,
+    };
+}
+
+/** @returns {Project} */
+export function makeProject(name = 'Untitled', progression = makeProgression()) {
+    const now = new Date().toISOString();
+    return { id: newId('p'), name, createdAt: now, updatedAt: now, progression };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEAM MAINTENANCE — preserve seams where adjacency is unchanged, null the rest
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * After a reorder/delete, rebuild the seams array so a seam survives only if its exact
+ * ordered (chordA.id -> chordB.id) adjacency existed before and had a technique.
+ *
+ * @param {Chord[]} prevChords
+ * @param {Array<TechniqueId|null>} prevSeams
+ * @param {Chord[]} nextChords
+ * @returns {Array<TechniqueId|null>}
+ */
+export function reconcileSeams(prevChords, prevSeams, nextChords) {
+    /** @type {Map<string, TechniqueId>} */
+    const byAdjacency = new Map();
+    for (let i = 0; i < prevSeams.length; i++) {
+        const t = prevSeams[i];
+        if (t) byAdjacency.set(`${ prevChords[i].id }->${ prevChords[i + 1].id }`, t);
+    }
+    const next = [];
+    for (let i = 0; i < nextChords.length - 1; i++) {
+        const key = `${ nextChords[i].id }->${ nextChords[i + 1].id }`;
+        next.push(byAdjacency.get(key) ?? null);
+    }
+    return next;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VALIDATION — used on import. Malformed input must fail gracefully, not throw upstream.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Validate + normalize an imported progression. Unknown technique keys become null (+warning)
+ * rather than crashing. Returns the cleaned progression plus any warnings for the UI.
+ *
+ * @param {any} raw
+ * @returns {{ ok: boolean, progression?: Progression, warnings: string[], error?: string }}
+ */
+export function validateProgression(raw) {
+    const warnings = [];
+    try {
+        if (!raw || typeof raw !== 'object') return { ok: false, warnings, error: 'Not an object.' };
+
+        const s = raw.settings ?? {};
+        const settings = makeSettings({
+            tempo: Number.isFinite(s.tempo) ? s.tempo : 100,
+            timeSig: (s.timeSig && Number.isFinite(s.timeSig.num) && Number.isFinite(s.timeSig.den))
+                ? { num: s.timeSig.num, den: s.timeSig.den } : { num: 4, den: 4 },
+            key: Number.isInteger(s.key) && s.key >= -7 && s.key <= 7 ? s.key : 0,
+            clef: ['auto', 'treble', 'bass'].includes(s.clef) ? s.clef : 'auto',
+        });
+
+        if (!Array.isArray(raw.chords)) return { ok: false, warnings, error: 'chords is not an array.' };
+        const chords = raw.chords.map((c, i) => {
+            if (!c || !Array.isArray(c.notes) || !c.notes.every(Number.isInteger)) {
+                throw new Error(`Chord ${ i } has invalid notes.`);
+            }
+            return {
+                id: typeof c.id === 'string' ? c.id : newId('c'),
+                notes: [...c.notes],
+                bars: Number.isFinite(c.bars) && c.bars >= 0.5 ? c.bars : 1,
+                ...(c.hint && Number.isInteger(c.hint.rootMidi) ? { hint: c.hint } : {}),
+            };
+        });
+
+        const rawSeams = Array.isArray(raw.seams) ? raw.seams : [];
+        const seams = [];
+        for (let i = 0; i < chords.length - 1; i++) {
+            const t = rawSeams[i];
+            if (t == null) { seams.push(null); continue; }
+            if (TECHNIQUE_IDS.includes(t)) { seams.push(t); }
+            else { seams.push(null); warnings.push(`Unknown technique "${ t }" at seam ${ i } — dropped.`); }
+        }
+
+        return { ok: true, progression: { settings, chords, seams }, warnings };
+    } catch (err) {
+        return { ok: false, warnings, error: err instanceof Error ? err.message : String(err) };
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// compile() — THE pure translation: intent -> concrete segments.
+// Signature + contract locked here; body is Eric's (engine/*). See DATA-MODEL.md §2.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Pure. Turns a progression into an ordered Segment[] that render, audio, and the bar-effect
+ * all read from the SAME list (so what you see == what you hear).
+ *
+ * Responsibilities:
+ *   1. Voice-lead auto-generated technique material (NEVER the user's chords) toward whatever
+ *      sounds immediately before it (engine/voicing.js).
+ *   2. Decompose each duration into STANDARD_DURATIONS pieces, cap technique run-length via
+ *      maxNotes = floor(B / 0.25) (engine/rhythm.js).
+ *   3. Lay pieces into measures of measureLength(timeSig) beats; tag ties via shared sourceId.
+ *
+ * @param {Progression} progression
+ * @returns {Segment[]}
+ */
+export function compile(progression) {
+    // TODO(Eric): implemented in engine/*. Stub returns [] so branches can wire against it today.
+    void progression;
+    return [];
+}

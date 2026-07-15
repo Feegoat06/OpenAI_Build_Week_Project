@@ -1,2 +1,2 @@
-# OpenAI_Build_Week_Project
+# OpenAI Hackathon: Legato
 For later
