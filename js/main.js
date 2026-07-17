@@ -2,6 +2,7 @@ import { availableBeats, chordTotalBeats, compile, makeChord, reconcileSeams } f
 import { makeDefaultProgression } from './data/demo-progressions.js';
 import { chordDisplayName, noteName } from './engine/chords.js';
 import { TECHNIQUES } from './engine/techniques.js';
+import { evaluateAllTechniques } from './engine/technique-eligibility.js';
 import { renderNotation } from './notation/render.js';
 import { playSegments, stopPlayback } from './audio/playback.js';
 import { openPianoModal, populateChordControls } from './ui/piano-modal.js';
@@ -27,8 +28,17 @@ function syncControls() {
 function replaceChords(nextChords) {
   progression.seams = reconcileSeams(progression.chords, progression.seams, nextChords);
   progression.chords = nextChords;
+  resetIneligibleSeams();
   selectedSeam = Math.min(selectedSeam, Math.max(0, progression.seams.length - 1));
   rerender();
+}
+
+function resetIneligibleSeams() {
+  progression.seams = progression.seams.map((techniqueId, index) => {
+    if (!techniqueId) return null;
+    return evaluateAllTechniques(progression.chords[index], progression.chords[index + 1])
+      .find((technique) => technique.id === techniqueId)?.valid ? techniqueId : null;
+  });
 }
 
 function renderChords() {
@@ -64,7 +74,13 @@ function renderSeams() {
     row.innerHTML = `<div class="seam-top"><span class="seam-index">S${String(index + 1).padStart(2, '0')}</span><div class="seam-label"><strong>${from} → ${to}</strong><small>${budget} beat${budget === 1 ? '' : 's'} available in the departing tail</small></div></div><div class="seam-actions"><select class="seam-select" aria-label="Technique for transition ${index + 1}"></select><button class="seam-explain">Explain</button></div>`;
     const select = row.querySelector('.seam-select');
     select.add(new Option('Direct transition', ''));
-    Object.entries(TECHNIQUES).filter(([, technique]) => technique.beatCost <= budget).forEach(([id, technique]) => select.add(new Option(`${technique.name} · ${technique.beatCost}b`, id)));
+    evaluateAllTechniques(progression.chords[index], progression.chords[index + 1]).forEach((technique) => {
+      const affordable = technique.beatCost <= budget;
+      const option = new Option(`${technique.name} · ${technique.beatCost}b`, technique.id, false, false);
+      option.disabled = !technique.valid || !affordable;
+      option.title = !technique.valid ? technique.reason : (!affordable ? `requires ${technique.beatCost} beats; only ${budget} available` : '');
+      select.add(option);
+    });
     select.value = selected ?? '';
     select.onchange = () => { progression.seams[index] = select.value || null; selectedSeam = index; clearCoach(); rerender(); };
     row.querySelector('.seam-explain').onclick = () => explainSeam(index);
@@ -83,6 +99,7 @@ function saveChord(input) {
     progression.chords.push(makeChord(input.notes, input.bars, input.hint));
     if (progression.chords.length > 1) progression.seams.push(null);
   }
+  resetIneligibleSeams();
   editingId = null;
   clearCoach();
   rerender();

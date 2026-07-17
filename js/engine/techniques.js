@@ -1,4 +1,4 @@
-import { QUALITIES } from './chords.js';
+import { inferChordIdentity } from './chords.js';
 import { closestVoicing } from './voicing.js';
 
 export const TECHNIQUES = Object.freeze({
@@ -12,22 +12,29 @@ export const TECHNIQUES = Object.freeze({
   arpBridge: { name: 'Arpeggiated bridge', beatCost: 2 },
 });
 
-function rootPc(chord) {
-  // The stored hint is display-only by contract. Infer a root from exact pitch
-  // classes when they match a supported quality; otherwise use the lowest note
-  // as a small, deterministic fallback without adding anything to stored state.
-  const actual = [...new Set(chord.notes.map((note) => ((note % 12) + 12) % 12))].sort((a, b) => a - b);
-  for (const quality of ['Major', 'Minor', 'Dom7', 'Min7', 'Dim7', 'Sus4', 'Maj7', 'Dim', 'm7b5', 'Sus2', 'Aug']) {
-    for (let root = 0; root < 12; root += 1) {
-      const expected = [...new Set(chordPcs(root, quality))].sort((a, b) => a - b);
-      if (actual.length === expected.length && actual.every((pc, index) => pc === expected[index])) return root;
-    }
-  }
-  return ((Math.min(...chord.notes) % 12) + 12) % 12;
+const INTERVALS = Object.freeze({
+  dim7: [0, 3, 6, 9],
+  dom7: [0, 4, 7, 10],
+  min7: [0, 3, 7, 10],
+  sus4: [0, 5, 7],
+});
+
+function pitchClassesFrom(root, intervals) {
+  return intervals.map((interval) => (root + interval) % 12);
 }
 
-function chordPcs(root, quality) {
-  return QUALITIES[quality].map((interval) => (root + interval) % 12);
+function assertIntervalFormula(label, root, intervals, expectedSteps) {
+  const absolute = intervals.map((interval) => root + interval);
+  const steps = absolute.slice(1).map((note, index) => note - absolute[index]);
+  if (steps.length !== expectedSteps.length || steps.some((step, index) => step !== expectedSteps[index])) {
+    throw new Error(`${label} interval formula is invalid: expected ${expectedSteps.join(', ')}, got ${steps.join(', ')}`);
+  }
+}
+
+function voicedBlock(label, root, intervals, expectedSteps, reference, duration) {
+  // Assert the source formula before closest-voicing chooses octave placement.
+  assertIntervalFormula(label, root, intervals, expectedSteps);
+  return [{ notes: closestVoicing(pitchClassesFrom(root, intervals), reference), duration }];
 }
 
 function closestTargetTo(source, targetNotes) {
@@ -53,18 +60,22 @@ function noteEvents(notes, budget) {
 }
 
 export function generateTechnique(id, fromChord, toChord, reference, budget) {
-  const target = rootPc(toChord);
-  const block = (root, quality, duration = budget) => [{ notes: closestVoicing(chordPcs(root, quality), reference), duration }];
+  const from = inferChordIdentity(fromChord);
+  const to = inferChordIdentity(toChord);
+  const target = to.rootPc;
   switch (id) {
-    case 'passingDim': return block(target + 11, 'Dim7');
-    case 'secondaryDom': return block(target + 7, 'Dom7');
-    case 'tritoneSub': return block(target + 1, 'Dom7');
+    case 'passingDim': {
+      const direction = ((target - from.rootPc + 12) % 12) === 2 ? 1 : -1;
+      return voicedBlock('Passing diminished', from.rootPc + direction, INTERVALS.dim7, [3, 3, 3], reference, budget);
+    }
+    case 'secondaryDom': return voicedBlock('Secondary dominant', target + 7, INTERVALS.dom7, [4, 3, 3], reference, budget);
+    case 'tritoneSub': return voicedBlock('Tritone substitution', from.rootPc + 6, INTERVALS.dom7, [4, 3, 3], reference, budget);
     case 'ii_v_i': {
-      const first = block(target + 2, 'Min7', budget / 2)[0];
-      const second = { notes: closestVoicing(chordPcs(target + 7, 'Dom7'), first.notes), duration: budget / 2 };
+      const first = voicedBlock('2-5-1 ii chord', target + 2, INTERVALS.min7, [3, 4, 3], reference, budget / 2)[0];
+      const second = voicedBlock('2-5-1 V chord', target + 7, INTERVALS.dom7, [4, 3, 3], first.notes, budget / 2)[0];
       return [first, second];
     }
-    case 'susPassing': return block(target, 'Sus4');
+    case 'susPassing': return voicedBlock('Sus passing', target, INTERVALS.sus4, [5, 2], reference, budget);
     case 'leadingTone': {
       const pc = (target + 11) % 12;
       const note = closestVoicing([pc], reference)[0];
@@ -83,7 +94,9 @@ export function generateTechnique(id, fromChord, toChord, reference, budget) {
       return noteEvents(notes, budget);
     }
     case 'arpBridge': {
-      let notes = closestVoicing(chordPcs(target + 7, 'Dom7'), reference).sort((a, b) => a - b);
+      const direction = Math.max(...toChord.notes) >= Math.max(...fromChord.notes) ? 1 : -1;
+      const ordered = (notes) => [...notes].sort((a, b) => direction * (a - b));
+      let notes = [...ordered(fromChord.notes), ...ordered(toChord.notes)];
       notes = subsample(notes, Math.floor(budget / 0.25));
       return noteEvents(notes, budget);
     }

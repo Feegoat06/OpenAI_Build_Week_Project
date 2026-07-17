@@ -18,6 +18,34 @@ export function notesFrom(rootMidi, quality) {
   return intervals.map((interval) => rootMidi + interval);
 }
 
+/**
+ * Derive a supported chord identity exclusively from the notes that are stored
+ * in progression state. Hints are display-only and must never affect engine
+ * behavior. An unrecognised chord still receives a deterministic bass root so
+ * callers can give a helpful eligibility reason instead of crashing.
+ */
+export function inferChordIdentity(chord) {
+  const pitchClasses = [...new Set(chord.notes.map((note) => ((note % 12) + 12) % 12))]
+    .sort((a, b) => a - b);
+  const qualityOrder = ['Dom7', 'Min7', 'Maj7', 'Dim7', 'm7b5', 'Major', 'Minor', 'Dim', 'Sus4', 'Sus2', 'Aug'];
+
+  for (const quality of qualityOrder) {
+    for (let rootPc = 0; rootPc < 12; rootPc += 1) {
+      const expected = [...new Set(QUALITIES[quality].map((interval) => (rootPc + interval) % 12))]
+        .sort((a, b) => a - b);
+      if (pitchClasses.length === expected.length && pitchClasses.every((pc, index) => pc === expected[index])) {
+        return { rootPc, quality, recognised: true };
+      }
+    }
+  }
+
+  return {
+    rootPc: ((Math.min(...chord.notes) % 12) + 12) % 12,
+    quality: null,
+    recognised: false,
+  };
+}
+
 const SHARP_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
 const FLAT_NAMES = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
 
