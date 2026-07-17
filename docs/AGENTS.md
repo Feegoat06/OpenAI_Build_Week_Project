@@ -115,16 +115,16 @@ segment = {
 
 Implement these exact keys and meanings before adding anything else:
 
-| Key | Display name | Beat cost | Required behavior |
-| --- | --- | ---: | --- |
-| `passingDim` | Diatonic passing diminished | 1 | Dim7 rooted one semitone below the target root. |
-| `secondaryDom` | Secondary dominant | 1 | Dom7 rooted a perfect fifth above the target root. |
-| `tritoneSub` | Tritone substitution | 1 | Dom7 rooted one semitone above the target root. |
-| `ii_v_i` | 2-5-1 insert | 2 | Min7 on target +2 semitones, then Dom7 on target +7; split time evenly. |
-| `susPassing` | Sus chord passing | 1 | Sus4 on the target root. |
-| `leadingTone` | Leading tone bass note | 0.5 | One note a semitone below the target root. |
-| `scaleRun` | Scale run | 2 | Chromatic single-note walk from the current top note to the closest target note, with the documented adjacent-note fallback. |
-| `arpBridge` | Arpeggiated bridge | 2 | Ascending notes of the same harmony as `secondaryDom`. |
+| Key            | Display name                | Beat cost | Required behavior                                                                                                            |
+| -------------- | --------------------------- | --------: | ---------------------------------------------------------------------------------------------------------------------------- |
+| `passingDim`   | Diatonic passing diminished |         1 | Dim7 rooted one semitone below the target root.                                                                              |
+| `secondaryDom` | Secondary dominant          |         1 | Dom7 rooted a perfect fifth above the target root.                                                                           |
+| `tritoneSub`   | Tritone substitution        |         1 | Dom7 rooted one semitone above the target root.                                                                              |
+| `ii_v_i`       | 2-5-1 insert                |         2 | Min7 on target +2 semitones, then Dom7 on target +7; split time evenly.                                                      |
+| `susPassing`   | Sus chord passing           |         1 | Sus4 on the target root.                                                                                                     |
+| `leadingTone`  | Leading tone bass note      |       0.5 | One note a semitone below the target root.                                                                                   |
+| `scaleRun`     | Scale run                   |         2 | Chromatic single-note walk from the current top note to the closest target note, with the documented adjacent-note fallback. |
+| `arpBridge`    | Arpeggiated bridge          |         2 | Ascending notes of the same harmony as `secondaryDom`.                                                                       |
 
 Technique-generated block chords must use the closest-voicing search described in the data model. Generated connective material stays roughly within MIDI 40–88; user input may use MIDI 21–108.
 

@@ -1,3 +1,15 @@
+/**
+ * Serverless coach endpoint (Vercel Function).
+ *
+ * Reasons this lives on the server, not the client:
+ *   - Holds OPENAI_API_KEY (env var). Key never touches the browser.
+ *   - Enforces the JSON-schema response format so the client can trust the shape.
+ *   - Turns provider errors into stable status codes for the UI to render.
+ *
+ * Shares two building blocks with the client to avoid drift:
+ *   - `buildSeamCoachPrompt` — the actual prompt text.
+ *   - `isCoachResponse` — the shape guard for the four educational fields.
+ */
 import { buildSeamCoachPrompt } from '../js/coach/prompts.js';
 import { isCoachResponse } from '../js/coach/coach.js';
 
@@ -31,7 +43,7 @@ export async function generateCoachResponse(payload) {
   const prompt = buildSeamCoachPrompt(payload);
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ process.env.OPENAI_API_KEY }` },
     body: JSON.stringify({
       model: process.env.OPENAI_MODEL || 'gpt-5.6',
       input: prompt,

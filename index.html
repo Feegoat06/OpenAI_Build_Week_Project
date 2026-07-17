@@ -1,21 +1,28 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="LEGATO is an interactive AI music tutor for composing, hearing, and understanding chord transitions.">
+  <meta name="description"
+    content="LEGATO is an interactive AI music tutor for composing, hearing, and understanding chord transitions.">
   <title>LEGATO — Progression Coach</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,340;0,9..144,600;1,9..144,500&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,340;0,9..144,600;1,9..144,500&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css">
 </head>
+
 <body>
   <div class="app-shell">
     <aside class="editor-pane">
       <header class="brand-block">
         <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
-        <div><a class="brand" href="#">LEGATO</a><p>Progression coach</p></div>
+        <div><a class="brand" href="#">LEGATO</a>
+          <p>Progression coach</p>
+        </div>
         <span class="build-tag">EDU / 01</span>
       </header>
 
@@ -23,28 +30,57 @@
         <section class="intro-block">
           <p class="kicker">Composition workspace</p>
           <h1>Build the space<br><em>between chords.</em></h1>
-          <p class="intro-copy">Place exact piano voicings, shape the connective tissue, then listen for what changed.</p>
+          <p class="intro-copy">Place exact piano voicings, shape the connective tissue, then listen for what changed.
+          </p>
         </section>
 
         <section class="editor-section" aria-labelledby="score-settings-title">
-          <div class="section-title"><span>01</span><h2 id="score-settings-title">Score settings</h2></div>
-          <div class="settings-grid">
-            <label class="tempo-control"><span>Tempo</span><div><input id="tempo" type="range" min="40" max="180" value="96"><output id="tempo-value">96</output><small>BPM</small></div></label>
-            <label><span>Meter</span><select id="time-signature"><option>3/4</option><option selected>4/4</option><option>5/4</option><option>7/4</option><option>6/8</option></select></label>
-            <label><span>Key signature</span><select id="key-signature"><option value="-3">E♭ · 3 flats</option><option value="-2">B♭ · 2 flats</option><option value="-1">F · 1 flat</option><option value="0" selected>C · no accidentals</option><option value="1">G · 1 sharp</option><option value="2">D · 2 sharps</option><option value="3">A · 3 sharps</option></select></label>
-            <label><span>Clef</span><select id="clef"><option value="auto">Auto</option><option value="treble">Treble</option><option value="bass">Bass</option></select></label>
+          <div class="section-title"><span>01</span>
+            <h2 id="score-settings-title">Score settings</h2>
           </div>
-          <p class="field-note">Key signature moves only its matching natural notes by a sharp or flat; it never globally transposes the progression.</p>
+          <div class="settings-grid">
+            <label class="tempo-control"><span>Tempo</span>
+              <div><input id="tempo" type="range" min="40" max="180" value="96"><output
+                  id="tempo-value">96</output><small>BPM</small></div>
+            </label>
+            <label><span>Meter</span><select id="time-signature">
+                <option>3/4</option>
+                <option selected>4/4</option>
+                <option>5/4</option>
+                <option>7/4</option>
+                <option>6/8</option>
+              </select></label>
+            <label><span>Key signature</span><select id="key-signature">
+                <option value="-3">E♭ · 3 flats</option>
+                <option value="-2">B♭ · 2 flats</option>
+                <option value="-1">F · 1 flat</option>
+                <option value="0" selected>C · no accidentals</option>
+                <option value="1">G · 1 sharp</option>
+                <option value="2">D · 2 sharps</option>
+                <option value="3">A · 3 sharps</option>
+              </select></label>
+            <label><span>Clef</span><select id="clef">
+                <option value="auto">Auto</option>
+                <option value="treble">Treble</option>
+                <option value="bass">Bass</option>
+              </select></label>
+          </div>
+          <p class="field-note">Key signature moves only its matching natural notes by a sharp or flat; it never
+            globally transposes the progression.</p>
         </section>
 
         <section class="editor-section" aria-labelledby="chords-title">
-          <div class="section-title"><span>02</span><h2 id="chords-title">Chord material</h2><button id="add-chord" class="text-action">+ Add chord</button></div>
+          <div class="section-title"><span>02</span>
+            <h2 id="chords-title">Chord material</h2><button id="add-chord" class="text-action">+ Add chord</button>
+          </div>
           <div class="table-head"><span>Voicing</span><span>Beats</span><span></span></div>
           <div id="chord-list" class="chord-list"></div>
         </section>
 
         <section class="editor-section" aria-labelledby="seams-title">
-          <div class="section-title"><span>03</span><h2 id="seams-title">Transitions</h2></div>
+          <div class="section-title"><span>03</span>
+            <h2 id="seams-title">Transitions</h2>
+          </div>
           <p class="section-copy">Techniques appear only when the departing chord has enough space.</p>
           <div id="seam-list" class="seam-list"></div>
         </section>
@@ -53,8 +89,13 @@
 
     <main class="score-pane">
       <header class="score-header">
-        <div><p class="kicker">Compiled score</p><h2>Your Progression!</h2></div>
-        <div class="score-meta"><span><i class="user-dot"></i>User voicing</span><span><i class="technique-dot"></i>Technique</span><span id="score-summary">0 measures</span><output id="score-zoom-value" class="score-zoom" aria-live="polite">100% · scroll score to zoom</output></div>
+        <div>
+          <p class="kicker">Compiled score</p>
+          <h2>Your Progression!</h2>
+        </div>
+        <div class="score-meta"><span><i class="user-dot"></i>User voicing</span><span><i
+              class="technique-dot"></i>Technique</span><span id="score-summary">0 measures</span><output
+            id="score-zoom-value" class="score-zoom" aria-live="polite">100% · scroll score to zoom</output></div>
       </header>
 
       <section class="notation-stage" aria-label="Progression notation">
@@ -63,42 +104,88 @@
       </section>
 
       <section class="transport" aria-label="Playback controls">
-        <div class="transport-buttons"><button id="play" class="play-button"><span>▶</span> Play progression</button><button id="stop" class="stop-button">■ Stop</button></div>
-        <div class="transport-status"><span id="playback-pulse"></span><output id="playback-status">Ready to listen</output></div>
+        <div class="transport-buttons"><button id="play" class="play-button"><span>▶</span> Play
+            progression</button><button id="stop" class="stop-button">■ Stop</button></div>
+        <div class="transport-status"><span id="playback-pulse"></span><output id="playback-status">Ready to
+            listen</output></div>
         <button id="reset-example" class="reset-button">↺ Reload example</button>
       </section>
 
       <section class="coach-panel" aria-labelledby="coach-title">
-        <div class="coach-heading"><div><p class="kicker">04 · AI tutor</p><h2 id="coach-title">Understand the transition</h2></div><p id="coach-context">Select a seam, then ask LEGATO to explain the exact notes you hear.</p></div>
-        <div id="coach-output" class="coach-output"><div class="coach-empty"><span>∿</span><p>Your grounded explanation will appear here.</p></div></div>
+        <div class="coach-heading">
+          <div>
+            <p class="kicker">04 · AI tutor</p>
+            <h2 id="coach-title">Understand the transition</h2>
+          </div>
+          <p id="coach-context">Select a seam, then ask LEGATO to explain the exact notes you hear.</p>
+        </div>
+        <div id="coach-output" class="coach-output">
+          <div class="coach-empty"><span>∿</span>
+            <p>Your grounded explanation will appear here.</p>
+          </div>
+        </div>
       </section>
     </main>
   </div>
 
+  <!--
+    Piano modal ("Shape the chord"). Controlled entirely by js/ui/piano-modal.js:
+      - #modal-root:         12 pitch-class options; combined with the octave
+                             state to build a MIDI root.
+      - #modal-quality-chips: buttons for every entry in QUALITIES.
+      - #piano-keys:         88 MIDI keys, populated on open.
+      - .preview-panel:      VexFlow mini-stave + ▲/▼ octave shifters.
+                             Both the ▶ button and the sheet trigger playChord().
+    The form's `onsubmit="return false"` blocks the browser's implicit submit
+    on Enter — Save is wired manually.
+  -->
   <dialog id="piano-dialog">
     <form method="dialog" class="dialog-shell" onsubmit="return false">
-      <header class="dialog-header"><div><p class="kicker">Explicit voicing</p><h2>Shape the chord</h2><p>Pick a root and quality, then toggle any key to shape the octave, doubling, and inversion.</p></div><button id="modal-cancel" class="close-button" aria-label="Close chord editor">×</button></header>
-      <div class="modal-controls"><label><span>Root</span><select id="modal-root"></select></label><label><span>Duration</span><select id="modal-bars"><option value="0.5">½ bar</option><option value="1" selected>1 bar</option><option value="1.5">1½ bars</option><option value="2">2 bars</option><option value="3">3 bars</option><option value="4">4 bars</option></select></label></div>
+      <header class="dialog-header">
+        <div>
+          <p class="kicker">Explicit voicing</p>
+          <h2>Shape the chord</h2>
+          <p>Pick a root and quality, then toggle any key to shape the octave, doubling, and inversion.</p>
+        </div><button id="modal-cancel" class="close-button" aria-label="Close chord editor">×</button>
+      </header>
+      <div class="modal-controls"><label><span>Root</span><select
+            id="modal-root"></select></label><label><span>Duration</span><select id="modal-bars">
+            <option value="0.5">½ bar</option>
+            <option value="1" selected>1 bar</option>
+            <option value="1.5">1½ bars</option>
+            <option value="2">2 bars</option>
+            <option value="3">3 bars</option>
+            <option value="4">4 bars</option>
+          </select></label></div>
       <div class="quality-chips" id="modal-quality-chips" role="group" aria-label="Chord quality"></div>
       <div class="piano-stage">
         <div class="piano-column">
-          <div class="piano-instruction"><p>Click keys to toggle exact notes</p></div>
+          <div class="piano-instruction">
+            <p>Click keys to toggle exact notes</p>
+          </div>
           <div id="piano-keys" class="piano" role="group" aria-label="Piano note selector"></div>
-          <div class="selection-readout"><div><span>Pitch names</span><strong id="selected-notes">No notes selected</strong></div></div>
+          <div class="selection-readout">
+            <div><span>Pitch names</span><strong id="selected-notes">No notes selected</strong></div>
+          </div>
         </div>
         <aside class="preview-panel" aria-label="Chord preview">
           <div class="preview-header">
-            <div class="preview-title"><span>Preview</span><button type="button" id="preview-play" class="preview-play" aria-label="Play chord preview">▶</button></div>
+            <div class="preview-title"><span>Preview</span><button type="button" id="preview-play" class="preview-play"
+                aria-label="Play chord preview">▶</button></div>
             <span id="octave-readout">Octave 4</span>
           </div>
-          <div class="preview-sheet" id="preview-sheet" role="button" tabindex="0" aria-label="Play chord preview"></div>
+          <div class="preview-sheet" id="preview-sheet" role="button" tabindex="0" aria-label="Play chord preview">
+          </div>
           <div class="octave-controls">
             <button type="button" id="octave-down" aria-label="Shift down one octave">▼ Octave</button>
             <button type="button" id="octave-up" aria-label="Shift up one octave">▲ Octave</button>
           </div>
         </aside>
       </div>
-      <footer class="dialog-footer"><p id="voicing-status">The exact selected notes are stored—never an inversion preset.</p><button id="modal-save" class="save-button" type="button">Save exact voicing <span>→</span></button></footer>
+      <footer class="dialog-footer">
+        <p id="voicing-status">The exact selected notes are stored—never an inversion preset.</p><button id="modal-save"
+          class="save-button" type="button">Save exact voicing <span>→</span></button>
+      </footer>
     </form>
   </dialog>
 
@@ -106,4 +193,5 @@
   <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
   <script type="module" src="/js/main.js"></script>
 </body>
+
 </html>

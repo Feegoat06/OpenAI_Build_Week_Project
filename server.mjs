@@ -5,24 +5,24 @@ import { generateCoachResponse } from './api/coach.js';
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 8000);
-const types = { '.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml' };
+const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.svg': 'image/svg+xml' };
 
 createServer(async (request, response) => {
   try {
     if (request.url === '/api/coach.js') {
-      if (request.method !== 'POST') { response.writeHead(405, {'Content-Type':'application/json'}); return response.end(JSON.stringify({error:'Method not allowed.'})); }
-      let body=''; for await (const chunk of request) body += chunk;
+      if (request.method !== 'POST') { response.writeHead(405, { 'Content-Type': 'application/json' }); return response.end(JSON.stringify({ error: 'Method not allowed.' })); }
+      let body = ''; for await (const chunk of request) body += chunk;
       const explanation = await generateCoachResponse(JSON.parse(body || '{}'));
-      response.writeHead(200, {'Content-Type':'application/json'}); return response.end(JSON.stringify({ explanation }));
+      response.writeHead(200, { 'Content-Type': 'application/json' }); return response.end(JSON.stringify({ explanation }));
     }
     const pathname = request.url === '/' ? '/index.html' : decodeURIComponent(request.url.split('?')[0]);
     const path = normalize(join(root, pathname));
-    if (!path.startsWith(root)) throw Object.assign(new Error('Forbidden'), {status:403});
+    if (!path.startsWith(root)) throw Object.assign(new Error('Forbidden'), { status: 403 });
     const data = await readFile(path);
-    response.writeHead(200, {'Content-Type':types[extname(path)] || 'application/octet-stream'}); response.end(data);
+    response.writeHead(200, { 'Content-Type': types[extname(path)] || 'application/octet-stream' }); response.end(data);
   } catch (error) {
     const status = error.code === 'ENOENT' ? 404 : error.status || 500;
-    response.writeHead(status, {'Content-Type':request.url.startsWith('/api/') ? 'application/json' : 'text/plain'});
-    response.end(request.url.startsWith('/api/') ? JSON.stringify({error:error.message}) : `${status} ${error.message}`);
+    response.writeHead(status, { 'Content-Type': request.url.startsWith('/api/') ? 'application/json' : 'text/plain' });
+    response.end(request.url.startsWith('/api/') ? JSON.stringify({ error: error.message }) : `${ status } ${ error.message }`);
   }
-}).listen(port, () => console.log(`LEGATO running at http://localhost:${port}`));
+}).listen(port, () => console.log(`LEGATO running at http://localhost:${ port }`));

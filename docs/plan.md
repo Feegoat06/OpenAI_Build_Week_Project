@@ -54,17 +54,17 @@ Everything below the line is genuinely optional. If we fall behind, we cut from 
 
 ## 3. Final stack
 
-| Layer | Choice | Why |
-|---|---|---|
-| Frontend | Vanilla HTML/CSS/JS, **ES modules** | No build step; Codex regenerates cleanly; multiple files for branching |
-| Notation | VexFlow 4.2.2 (CDN) | Already in spec |
-| Audio | Tone.js 14.8.49 (CDN) | Already in spec, Salamander piano samples |
-| Drag reorder | **SortableJS** (CDN) | Hand-rolled HTML5 drag-and-drop is painful; this is 3 lines |
-| Saving | **`localStorage`** (multiple projects) + JSON **Import/Export** | Save many projects with zero backend; move them across devices via file |
-| GPT proxy | **One Vercel serverless function** (`/api/coach.js`) | Holds the OpenAI key server-side; frontend can't expose a key |
-| Hosting | **Vercel** (static site + function, one deploy) | Same repo, `git push` redeploys everything |
-| Version control | GitHub | Required for submission; Vercel deploys from it |
-| AI (build) | Codex + GPT-5.6, one main session | Needed for the `/feedback` session ID |
+| Layer           | Choice                                                          | Why                                                                     |
+| --------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Frontend        | Vanilla HTML/CSS/JS, **ES modules**                             | No build step; Codex regenerates cleanly; multiple files for branching  |
+| Notation        | VexFlow 4.2.2 (CDN)                                             | Already in spec                                                         |
+| Audio           | Tone.js 14.8.49 (CDN)                                           | Already in spec, Salamander piano samples                               |
+| Drag reorder    | **SortableJS** (CDN)                                            | Hand-rolled HTML5 drag-and-drop is painful; this is 3 lines             |
+| Saving          | **`localStorage`** (multiple projects) + JSON **Import/Export** | Save many projects with zero backend; move them across devices via file |
+| GPT proxy       | **One Vercel serverless function** (`/api/coach.js`)            | Holds the OpenAI key server-side; frontend can't expose a key           |
+| Hosting         | **Vercel** (static site + function, one deploy)                 | Same repo, `git push` redeploys everything                              |
+| Version control | GitHub                                                          | Required for submission; Vercel deploys from it                         |
+| AI (build)      | Codex + GPT-5.6, one main session                               | Needed for the `/feedback` session ID                                   |
 
 **Dev gotcha to internalize on day one:** ES module `import`s fail over `file://` (CORS). Do **not** double-click `index.html`. Run a local static server:
 ```bash

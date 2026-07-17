@@ -1,6 +1,20 @@
+/**
+ * The eight transition-technique bodies.
+ *
+ * Each technique defines what plays inside a seam between two chords. Only the
+ * pitch classes / melodic contour are fixed here — final octave placement for
+ * block-chord techniques comes from `closestVoicing()` so the connective tissue
+ * sits near what's actually sounding. See DATA-MODEL.md §5 for the full spec.
+ *
+ * A technique never mutates the user's chords. It borrows time from the
+ * departing chord's tail (see `availableBeats` in state.js) and its notes are
+ * always recomputed by `compile()` — nothing is cached in state.
+ */
 import { inferChordIdentity } from './chords.js';
 import { closestVoicing } from './voicing.js';
+import { pitchClassOf } from '../util/midi.js';
 
+/** Registry: keys stored in `progression.seams`; values metadata for the UI + compile(). */
 export const TECHNIQUES = Object.freeze({
   passingDim: { name: 'Diatonic passing diminished', beatCost: 1 },
   secondaryDom: { name: 'Secondary dominant', beatCost: 1 },
@@ -20,19 +34,23 @@ const INTERVALS = Object.freeze({
 });
 
 function pitchClassesFrom(root, intervals) {
-  return intervals.map((interval) => (root + interval) % 12);
+  return intervals.map((interval) => pitchClassOf(root + interval));
 }
 
 function assertIntervalFormula(label, root, intervals, expectedSteps) {
   const absolute = intervals.map((interval) => root + interval);
   const steps = absolute.slice(1).map((note, index) => note - absolute[index]);
   if (steps.length !== expectedSteps.length || steps.some((step, index) => step !== expectedSteps[index])) {
-    throw new Error(`${label} interval formula is invalid: expected ${expectedSteps.join(', ')}, got ${steps.join(', ')}`);
+    throw new Error(`${ label } interval formula is invalid: expected ${ expectedSteps.join(', ') }, got ${ steps.join(', ') }`);
   }
 }
 
+/**
+ * Build a single block-chord technique event: assert the interval formula is
+ * intact (silent-failure guard), then let closestVoicing pick the octave that
+ * sits nearest the reference voicing.
+ */
 function voicedBlock(label, root, intervals, expectedSteps, reference, duration) {
-  // Assert the source formula before closest-voicing chooses octave placement.
   assertIntervalFormula(label, root, intervals, expectedSteps);
   return [{ notes: closestVoicing(pitchClassesFrom(root, intervals), reference), duration }];
 }
@@ -47,6 +65,11 @@ function subsample(notes, maxNotes) {
   return Array.from({ length: maxNotes }, (_, index) => notes[Math.round(index * (notes.length - 1) / (maxNotes - 1))]);
 }
 
+/**
+ * Emit one single-note event per pitch, distributing `budget` beats as evenly
+ * as possible across sixteenth-note slots. Any remainder is spread over the
+ * leading notes so the total exactly equals `budget`.
+ */
 function noteEvents(notes, budget) {
   const totalUnits = Math.round(budget / 0.25);
   const count = Math.min(notes.length, totalUnits);
@@ -59,6 +82,16 @@ function noteEvents(notes, budget) {
   });
 }
 
+/**
+ * Produce the connective events that fill a seam.
+ *
+ * @param {keyof TECHNIQUES} id            Technique key from the registry.
+ * @param {{notes: number[]}} fromChord    Departing chord.
+ * @param {{notes: number[]}} toChord      Arriving chord (technique targets its root).
+ * @param {number[]} reference             Reference voicing for closest-voicing (usually fromChord.notes).
+ * @param {number} budget                  Beat budget carved from fromChord's tail.
+ * @returns {Array<{notes: number[], duration: number}>}
+ */
 export function generateTechnique(id, fromChord, toChord, reference, budget) {
   const from = inferChordIdentity(fromChord);
   const to = inferChordIdentity(toChord);
@@ -77,7 +110,7 @@ export function generateTechnique(id, fromChord, toChord, reference, budget) {
     }
     case 'susPassing': return voicedBlock('Sus passing', target, INTERVALS.sus4, [5, 2], reference, budget);
     case 'leadingTone': {
-      const pc = (target + 11) % 12;
+      const pc = pitchClassOf(target - 1);
       const note = closestVoicing([pc], reference)[0];
       return [{ notes: [note], duration: budget }];
     }

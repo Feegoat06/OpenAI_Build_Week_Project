@@ -1,8 +1,21 @@
+/**
+ * Which techniques are theoretically valid between two chords.
+ *
+ * Some techniques only make musical sense in specific contexts (e.g. a passing
+ * diminished chord needs whole-step root motion). This module encodes those
+ * theoretical constraints so the seam picker can grey out inapplicable options
+ * and compile() can decline to insert them.
+ *
+ * NOTE: eligibility is theoretical only. The beat-budget check (whether the
+ * departing chord has enough tail to borrow) is applied separately by the UI
+ * and by compile(), because it depends on `chord.bars` and the current meter.
+ */
 import { inferChordIdentity } from './chords.js';
 import { TECHNIQUES } from './techniques.js';
+import { pitchClassOf } from '../util/midi.js';
 
 function intervalUp(fromRoot, toRoot) {
-  return (toRoot - fromRoot + 12) % 12;
+  return pitchClassOf(toRoot - fromRoot);
 }
 
 function circularDistance(a, b) {

@@ -1,13 +1,21 @@
+/**
+ * VexFlow rendering of the compiled progression.
+ *
+ * Reads the same `Segment[]` the audio scheduler consumes, so the score cannot
+ * silently drift from what plays. Each measure is drawn in its own `<g>`
+ * group with `data-measure=<n>` — main.js toggles a `.is-playing` class on
+ * that group during playback to light the current bar.
+ *
+ * User notes are drawn in `--ivory`; technique-generated notes in `--anchor`
+ * (the accent color). Ties are drawn between adjacent segments that share a
+ * `sourceId` (see rhythm.js), even across a barline.
+ */
+import { vexKey } from '../util/midi.js';
+
 const KEY_SIGNATURES = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
 const DURATIONS = new Map([[4, 'w'], [2, 'h'], [1, 'q'], [0.5, '8'], [0.25, '16']]);
-const SHARPS = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
-const FLATS = ['c', 'db', 'd', 'eb', 'e', 'f', 'gb', 'g', 'ab', 'a', 'bb', 'b'];
 
-function keyString(midi, key) {
-  const names = key < 0 ? FLATS : SHARPS;
-  return `${names[((midi % 12) + 12) % 12]}/${Math.floor(midi / 12) - 1}`;
-}
-
+/** 'auto' picks bass or treble from the median MIDI note across all segments. */
 function resolvedClef(segments, setting) {
   if (setting !== 'auto') return setting;
   const notes = segments.flatMap((segment) => segment.notes).sort((a, b) => a - b);
@@ -18,6 +26,14 @@ function styleModifiers(stave, color) {
   stave.getModifiers().forEach((modifier) => modifier.setStyle({ fillStyle: color, strokeStyle: color }));
 }
 
+/**
+ * Draw the score into `container`, replacing anything already there.
+ *
+ * @param {HTMLElement} container
+ * @param {Segment[]}   segments   Output of compile().
+ * @param {Settings}    settings   For key signature, time signature, and clef.
+ * @returns {{measureCount: number}}  Used by main.js for the "N measures" summary.
+ */
 export function renderNotation(container, segments, settings) {
   const VF = window.Vex?.Flow ?? window.VexFlow;
   container.replaceChildren();
@@ -50,10 +66,10 @@ export function renderNotation(container, segments, settings) {
     const row = Math.floor(measure / columns);
     const x = 10 + column * staveWidth;
     const y = 16 + row * rowHeight;
-    context.openGroup('measure-group', `measure-${measure}`, { 'data-measure': String(measure) });
+    context.openGroup('measure-group', `measure-${ measure }`, { 'data-measure': String(measure) });
     const stave = new VF.Stave(x, y, staveWidth);
     if (column === 0) {
-      stave.addClef(clef).addTimeSignature(`${settings.timeSig.num}/${settings.timeSig.den}`).addKeySignature(KEY_SIGNATURES[settings.key + 7]);
+      stave.addClef(clef).addTimeSignature(`${ settings.timeSig.num }/${ settings.timeSig.den }`).addKeySignature(KEY_SIGNATURES[settings.key + 7]);
     }
     styleModifiers(stave, staffColor);
     context.setStrokeStyle(staffColor); context.setFillStyle(staffColor);
@@ -62,11 +78,11 @@ export function renderNotation(container, segments, settings) {
     const staveNotes = measureSegments.map((segment) => {
       const staveNote = new VF.StaveNote({
         clef,
-        keys: segment.notes.map((midi) => keyString(midi, settings.key)),
+        keys: segment.notes.map((midi) => vexKey(midi, settings.key)),
         duration: DURATIONS.get(segment.durationBeats) ?? 'q',
       });
       segment.notes.forEach((midi, index) => {
-        const accidental = keyString(midi, settings.key).split('/')[0].slice(1);
+        const accidental = vexKey(midi, settings.key).split('/')[0].slice(1);
         if (accidental) staveNote.addModifier(new VF.Accidental(accidental), index);
       });
       const color = segment.isTechnique ? techniqueColor : userColor;

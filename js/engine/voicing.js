@@ -1,3 +1,19 @@
+import { pitchClassOf } from '../util/midi.js';
+
+/**
+ * Closest-voicing search: pick an octave placement for each target pitch class
+ * that sits nearest to a reference voicing. Used ONLY on auto-generated
+ * technique chords — user chords are never re-voiced (see DATA-MODEL.md §6).
+ *
+ * The search window (40..88) is deliberately narrower than the modal's input
+ * range (21..108): users can place a chord anywhere on the keyboard, but
+ * generated connective tissue stays in a central register.
+ *
+ * The cost function and rationale are documented in DATA-MODEL.md §6:
+ *   cost = sum |sorted candidate − sorted reference| + 0.1 * |mean diff|
+ *
+ * ~600 combinations for a 4-note chord — brute force is sub-millisecond.
+ */
 const MIN = 40;
 const MAX = 88;
 const MAX_SPAN = 16;
@@ -16,8 +32,16 @@ function combinations(options, index = 0, current = [], output = []) {
   return output;
 }
 
+/**
+ * @param {number[]} pitchClasses  Target pitch classes (any octave; only PC matters).
+ * @param {number[]} reference     Reference MIDI notes to voice-lead toward
+ *                                 (typically the departing chord's `notes`).
+ * @returns {number[]}             MIDI notes, one per unique pitch class,
+ *                                 chosen to minimize voice motion from `reference`.
+ */
 export function closestVoicing(pitchClasses, reference) {
-  const unique = [...new Set(pitchClasses.map((pc) => ((pc % 12) + 12) % 12))];
+  if (!pitchClasses?.length) return [];
+  const unique = [...new Set(pitchClasses.map(pitchClassOf))];
   const options = unique.map((pc) => {
     const notes = [];
     for (let midi = MIN; midi <= MAX; midi += 1) if (midi % 12 === pc) notes.push(midi);

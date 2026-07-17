@@ -123,17 +123,24 @@ export function availableBeats(departingTotalBeats) {
     return Math.max(0, Math.min(departingTotalBeats - 1, 4));
 }
 
-/** True for compound meters (6/8, 9/8, 12/8). */
+// ─────────────────────────────────────────────────────────────────────────────
+// USER-FACING BEATS — the UI shows "beats", state stores `bars`.
+// One "beat" == what a pianist counts: quarter note in simple meter, dotted
+// quarter in compound. Converters live here so no UI code has to reason about
+// the meter/beat relationship. compile() only ever sees `bars`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** 6/8, 9/8, 12/8. Compound meters group eighth notes into dotted-quarter beats. */
 export function isCompoundMeter(timeSig) {
     return timeSig.den === 8 && timeSig.num % 3 === 0 && timeSig.num >= 6;
 }
 
-/** Length of one user-facing beat, in quarter-beats. Dotted quarter for compound, else 4/den. */
+/** Length of one user-facing beat in quarter-beats. Dotted-quarter (1.5) if compound, else 4/den. */
 export function beatValue(timeSig) {
     return isCompoundMeter(timeSig) ? 1.5 : 4 / timeSig.den;
 }
 
-/** How many user-facing beats fit in one bar of this meter. */
+/** User-facing beats per bar. e.g. 4 in 4/4, 3 in 3/4, 2 in 6/8. */
 export function beatsPerBar(timeSig) {
     return measureLength(timeSig) / beatValue(timeSig);
 }

@@ -1,3 +1,18 @@
+/**
+ * Tone.js audio playback.
+ *
+ * Two consumption modes:
+ *   - `playSegments(compileOutput, …)` schedules the whole progression
+ *     against Tone.Transport, feeding a per-measure callback so the score can
+ *     highlight the bar currently sounding.
+ *   - `playNote` / `playChord` fire single events NOW. Used by the piano modal
+ *     for click-to-preview (per-key audio + the preview panel's play button).
+ *
+ * All modes share one lazily-built Salamander piano sampler so the samples
+ * only download once per session. The sampler must be created and
+ * `Tone.start()` must have been called in response to a user gesture (the
+ * browser's audio-context policy) — hence the `await ready()` on every entry.
+ */
 let sampler;
 let stopTimers = [];
 
@@ -18,7 +33,12 @@ function sameNotes(first, second) {
   return first.length === second.length && first.every((note, index) => note === second[index]);
 }
 
-/** Coalesce contiguous tied fragments into one sustained playback event. */
+/**
+ * Coalesce contiguous tied fragments into one sustained playback event.
+ * `layoutEvents` splits sustained notes into notatable pieces at barlines; for
+ * audio we want to hear one continuous note, so we merge adjacent pieces that
+ * share a sourceId, have identical notes, and touch in time.
+ */
 export function coalesceTiedSegments(segments, measureLength) {
   const events = [];
   for (const segment of segments) {
@@ -35,6 +55,17 @@ export function coalesceTiedSegments(segments, measureLength) {
   return events;
 }
 
+/**
+ * Schedule an entire compiled progression against Tone.Transport.
+ *
+ * @param {Segment[]} segments      Output of compile(); notation reads from the same list.
+ * @param {Settings}  settings      Progression settings (tempo, timeSig).
+ * @param {(measureIndex: number | null) => void} onMeasure  Fires when the active measure changes; called with `null` when playback ends.
+ * @param {() => void} [onStop]     Fires once after the final segment stops sounding.
+ *
+ * Cancels any in-flight schedule before starting the new one so overlapping
+ * `Play` clicks don't stack.
+ */
 export async function playSegments(segments, settings, onMeasure, onStop) {
   stopPlayback();
   await Tone.start();
@@ -63,6 +94,7 @@ export function stopPlayback() {
   sampler?.releaseAll();
 }
 
+/** Ensure the audio context is started + samples are loaded before triggering. */
 async function ready() {
   await Tone.start();
   const instrument = getSampler();
@@ -70,11 +102,13 @@ async function ready() {
   return instrument;
 }
 
+/** Fire a single note immediately. Used by the piano modal per-key preview. */
 export async function playNote(midi, seconds = 0.45) {
   const instrument = await ready();
   instrument.triggerAttackRelease(frequency(midi), seconds);
 }
 
+/** Fire a chord (multiple notes) immediately. Used by the preview panel's play button and sheet click. */
 export async function playChord(midis, seconds = 1.2) {
   if (!midis?.length) return;
   const instrument = await ready();

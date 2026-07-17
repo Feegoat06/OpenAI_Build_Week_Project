@@ -55,12 +55,12 @@ from colliding.
 
 ### 1.1 `settings`
 
-| Field | Type | Meaning | Notes |
-|---|---|---|---|
-| `tempo` | number (BPM) | Playback speed. | **Player-only.** `compile()` ignores it - tempo changes never re-run compile. |
-| `timeSig` | `{ num, den }` | Time signature, e.g. `{num:5, den:4}`. | Structural. Measure length (in quarter-beats) = `num * 4 / den`. See §4. |
-| `key` | integer -7..+7 | Key signature on the circle of fifths: sharps positive, flats negative. C=0, G=+1, F=-1, Bb=-2... | Applies only the signature’s named sharps/flats to matching natural material (for example F → F♯ in G). It is **not** a global transposition. It also selects notation spelling. |
-| `clef` | `'auto' \| 'treble' \| 'bass'` | One clef for the whole progression (no grand staff). | `'auto'` = pick from median pitch at render time (below middle C -> bass, else treble). Store the user's literal choice; resolve `'auto'` only when rendering. |
+| Field     | Type                           | Meaning                                                                                           | Notes                                                                                                                                                                            |
+| --------- | ------------------------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tempo`   | number (BPM)                   | Playback speed.                                                                                   | **Player-only.** `compile()` ignores it - tempo changes never re-run compile.                                                                                                    |
+| `timeSig` | `{ num, den }`                 | Time signature, e.g. `{num:5, den:4}`.                                                            | Structural. Measure length (in quarter-beats) = `num * 4 / den`. See §4.                                                                                                         |
+| `key`     | integer -7..+7                 | Key signature on the circle of fifths: sharps positive, flats negative. C=0, G=+1, F=-1, Bb=-2... | Applies only the signature’s named sharps/flats to matching natural material (for example F → F♯ in G). It is **not** a global transposition. It also selects notation spelling. |
+| `clef`    | `'auto' \| 'treble' \| 'bass'` | One clef for the whole progression (no grand staff).                                              | `'auto'` = pick from median pitch at render time (below middle C -> bass, else treble). Store the user's literal choice; resolve `'auto'` only when rendering.                   |
 
 ### 1.2 `chords`
 **The individual notes solely dictates the chord, not their quality, chordal root, etc.**
@@ -69,12 +69,12 @@ from colliding.
 { id, notes: [midi...], bars, hint?: { rootMidi, quality } }
 ```
 
-| Field | Type | Meaning | Notes |
-|---|---|---|---|
-| `id` | string | Stable, within-project-unique. | What SortableJS keys off and what lets you edit/delete the right row. `randomUUID()` or a counter. |
-| `notes` | `[int...]` | The **exact** MIDI notes that sound. This is the ground truth. | Full-keyboard range (MIDI 21-108). **Never re-voiced** - what's stored is what plays. Voicing, octave, doubling, and inversion are all encoded here implicitly. |
-| `bars` | number | Duration in bars (min 0.5, step 0.5). | Total beats = `bars * measureLength`. A following technique carves its cost out of this chord's tail (§3). |
-| `hint` | `{ rootMidi, quality }` \| absent | **Display-only** name hint. | Set by the quality-assisted input path so the row names itself instantly without the detector. `compile()`, audio, and render **never** read `hint`. If the user edits `notes` so they no longer match, drop the hint and fall back to `detect.js`. |
+| Field   | Type                              | Meaning                                                        | Notes                                                                                                                                                                                                                                               |
+| ------- | --------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`    | string                            | Stable, within-project-unique.                                 | What SortableJS keys off and what lets you edit/delete the right row. `randomUUID()` or a counter.                                                                                                                                                  |
+| `notes` | `[int...]`                        | The **exact** MIDI notes that sound. This is the ground truth. | Full-keyboard range (MIDI 21-108). **Never re-voiced** - what's stored is what plays. Voicing, octave, doubling, and inversion are all encoded here implicitly.                                                                                     |
+| `bars`  | number                            | Duration in bars (min 0.5, step 0.5).                          | Total beats = `bars * measureLength`. A following technique carves its cost out of this chord's tail (§3).                                                                                                                                          |
+| `hint`  | `{ rootMidi, quality }` \| absent | **Display-only** name hint.                                    | Set by the quality-assisted input path so the row names itself instantly without the detector. `compile()`, audio, and render **never** read `hint`. If the user edits `notes` so they no longer match, drop the hint and fall back to `detect.js`. |
 
 **Why notes-as-truth?** Both input modes produce the same thing - an explicit note set:
 
@@ -160,15 +160,15 @@ segment = {
 }
 ```
 
-| Field | Why it exists |
-|---|---|
-| `notes` | The actual pitches to draw and play. For user chords, identical to `chord.notes`. For techniques, the voice-led result. |
-| `durationBeats` | The single guarantee that see == hear. Both branches read this. |
-| `isTechnique` | Technique notes render in the accent colour and are what the coach explains. |
-| `sourceId` | Stamped identically on every decomposed piece of one original chord/technique instance. Two adjacent segments with the same `sourceId` get a `StaveTie` - even across a barline. |
-| `seamIndex` | Lets a clicked seam map back to its segments and its two flanking chords, so the coach can explain the real transition. `null` for user chords. |
-| `measureIndex` | Which measure/stave to place it on. |
-| `startBeat` | **Measure-relative** - beats from the start of its own measure (what the renderer wants for horizontal placement). Absolute time, which the player and bar-effect need, is `measureIndex * measureLength + startBeat`. This is clean *because* every measure in a progression shares one length. **Convention: measure-relative. Don't store absolute here.** |
+| Field           | Why it exists                                                                                                                                                                                                                                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `notes`         | The actual pitches to draw and play. For user chords, identical to `chord.notes`. For techniques, the voice-led result.                                                                                                                                                                                                                                       |
+| `durationBeats` | The single guarantee that see == hear. Both branches read this.                                                                                                                                                                                                                                                                                               |
+| `isTechnique`   | Technique notes render in the accent colour and are what the coach explains.                                                                                                                                                                                                                                                                                  |
+| `sourceId`      | Stamped identically on every decomposed piece of one original chord/technique instance. Two adjacent segments with the same `sourceId` get a `StaveTie` - even across a barline.                                                                                                                                                                              |
+| `seamIndex`     | Lets a clicked seam map back to its segments and its two flanking chords, so the coach can explain the real transition. `null` for user chords.                                                                                                                                                                                                               |
+| `measureIndex`  | Which measure/stave to place it on.                                                                                                                                                                                                                                                                                                                           |
+| `startBeat`     | **Measure-relative** - beats from the start of its own measure (what the renderer wants for horizontal placement). Absolute time, which the player and bar-effect need, is `measureIndex * measureLength + startBeat`. This is clean *because* every measure in a progression shares one length. **Convention: measure-relative. Don't store absolute here.** |
 
 ---
 
@@ -224,16 +224,16 @@ Each is a code-side entry keyed by the string stored in `seams`. All target the 
 all get their final register from closest-voicing (§ voice-leading) - the rows below only fix the
 *pitch classes/quality*, never the octave.
 
-| `seams` key | Name | `beatCost` | Content (targets next chord) |
-|---|---|---|---|
-| `passingDim` | Diatonic passing diminished | 1 | Dim7, root a half step **below** target. |
-| `secondaryDom` | Secondary dominant | 1 | Dom7, root a perfect 5th **above** target. |
-| `tritoneSub` | Tritone substitution | 1 | Dom7, root a half step **above** target. |
-| `ii_v_i` | 2-5-1 insert | 2 | Two chords: Min7 on target+2 semitones, then Dom7 on target+7, beats split evenly. |
-| `susPassing` | Sus chord passing | 1 | Target's own root, **Sus4** quality. |
-| `leadingTone` | Leading tone bass note | 0.5 | A **single note** (not a chord), a half step below the target's root. |
-| `scaleRun` | Scale run | 2 | Chromatic stepwise walk from current chord's top note to the closest note of the next chord. Each step is one single-note event. If adjacent (0-1 semitone apart), fall back to a single neighbour-tone. |
-| `arpBridge` | Arpeggiated bridge | 2 | Same harmony as `secondaryDom` (Dom7 a 5th above), but ascending individual notes, not a block. |
+| `seams` key    | Name                        | `beatCost` | Content (targets next chord)                                                                                                                                                                             |
+| -------------- | --------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `passingDim`   | Diatonic passing diminished | 1          | Dim7, root a half step **below** target.                                                                                                                                                                 |
+| `secondaryDom` | Secondary dominant          | 1          | Dom7, root a perfect 5th **above** target.                                                                                                                                                               |
+| `tritoneSub`   | Tritone substitution        | 1          | Dom7, root a half step **above** target.                                                                                                                                                                 |
+| `ii_v_i`       | 2-5-1 insert                | 2          | Two chords: Min7 on target+2 semitones, then Dom7 on target+7, beats split evenly.                                                                                                                       |
+| `susPassing`   | Sus chord passing           | 1          | Target's own root, **Sus4** quality.                                                                                                                                                                     |
+| `leadingTone`  | Leading tone bass note      | 0.5        | A **single note** (not a chord), a half step below the target's root.                                                                                                                                    |
+| `scaleRun`     | Scale run                   | 2          | Chromatic stepwise walk from current chord's top note to the closest note of the next chord. Each step is one single-note event. If adjacent (0-1 semitone apart), fall back to a single neighbour-tone. |
+| `arpBridge`    | Arpeggiated bridge          | 2          | Same harmony as `secondaryDom` (Dom7 a 5th above), but ascending individual notes, not a block.                                                                                                          |
 
 `scaleRun` and `arpBridge` exist to add real melodic motion (stepwise and skip-wise) so the piece
 doesn't sound like "static chord, static chord, passing chord, static chord" on loop.

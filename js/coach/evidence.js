@@ -1,5 +1,16 @@
+/**
+ * Deterministic facts that ground the coach's LLM response.
+ *
+ * The rule (see docs/AGENTS.md §8): the coach must not invent notes or
+ * relationships. So we pre-compute — in code — every claim it's allowed to
+ * make about a seam: common tones, exact common MIDI notes, bass and soprano
+ * motion in semitones, and the actual generated events. The prompt then just
+ * asks the model to explain these facts pedagogically, not rediscover them.
+ */
+import { pitchClassOf } from '../util/midi.js';
+
 function pitchClasses(notes) {
-  return [...new Set(notes.map((note) => ((note % 12) + 12) % 12))].sort((a, b) => a - b);
+  return [...new Set(notes.map(pitchClassOf))].sort((a, b) => a - b);
 }
 
 export function buildCoachEvidence(progression, segments, seamIndex) {
