@@ -19,7 +19,7 @@ const TEMPLATE = `
       <span class="brand-subtitle">Progression coach</span>
     </span>
   </button>
-  <button id="view-all-projects" class="text-action view-all-projects" type="button">View all projects →</button>
+  <button id="view-all-projects" class="text-action view-all-projects" type="button">View all projects</button>
   <button id="toggle-score-settings" class="icon-button" type="button" aria-label="Show score settings" aria-controls="score-settings" aria-expanded="false">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.6 3.3h4.8l.6 2.2a7.3 7.3 0 0 1 1.7 1l2.1-.7 2.4 4.1-1.6 1.6a7 7 0 0 1 0 2l1.6 1.6-2.4 4.1-2.1-.7a7.3 7.3 0 0 1-1.7 1l-.6 2.2H9.6L9 19.5a7.3 7.3 0 0 1-1.7-1l-2.1.7-2.4-4.1 1.6-1.6a7 7 0 0 1 0-2L2.8 9.9l2.4-4.1 2.1.7a7.3 7.3 0 0 1 1.7-1l.6-2.2Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
   </button>

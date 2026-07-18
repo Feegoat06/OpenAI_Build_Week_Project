@@ -32,19 +32,20 @@ const TEMPLATE = `
   </section>
 
   <div class="landing-scroll">
-    <section class="landing-section landing-actions" aria-label="Project actions">
-      <button id="landing-new" class="landing-primary" type="button">+ New project</button>
-      <button id="landing-import" class="landing-secondary" type="button">Import…</button>
-      <button id="landing-export-all" class="landing-secondary" type="button">Export all</button>
-      <input id="landing-import-file" type="file" accept="application/json,.json" hidden />
-    </section>
-
     <div id="landing-notice" class="landing-notice" hidden></div>
 
     <section class="landing-section" aria-labelledby="landing-recent-title">
       <div class="landing-section-head">
         <h2 id="landing-recent-title">Recent projects</h2>
         <span id="landing-recent-count" class="landing-count"></span>
+        <div class="landing-section-utilities">
+          <button id="landing-import" class="landing-secondary" type="button">Import…</button>
+          <button id="landing-export-all" class="landing-secondary" type="button">Export all</button>
+          <input id="landing-import-file" type="file" accept="application/json,.json" hidden />
+        </div>
+        <div class="landing-section-actions">
+          <button id="landing-new" class="landing-primary" type="button">+ New</button>
+        </div>
       </div>
       <div id="landing-recent-grid" class="landing-grid landing-grid-rail"></div>
     </section>
@@ -58,11 +59,14 @@ const TEMPLATE = `
     </section>
 
     <section class="landing-section landing-trash" aria-labelledby="landing-trash-title">
-      <button id="landing-trash-toggle" class="landing-section-head landing-trash-toggle" type="button" aria-expanded="false" aria-controls="landing-trash-grid">
-        <h2 id="landing-trash-title">Trash</h2>
-        <span id="landing-trash-count" class="landing-count">Empty</span>
-        <span class="landing-trash-caret" aria-hidden="true">▾</span>
-      </button>
+      <div class="landing-trash-header">
+        <button id="landing-trash-toggle" class="landing-section-head landing-trash-toggle" type="button" aria-expanded="false" aria-controls="landing-trash-grid">
+          <h2 id="landing-trash-title">Trash</h2>
+          <span id="landing-trash-count" class="landing-count">Empty</span>
+          <span class="landing-trash-caret" aria-hidden="true">▾</span>
+        </button>
+        <button id="landing-trash-empty" class="landing-trash-empty" type="button" hidden>Empty trash</button>
+      </div>
       <div id="landing-trash-grid" class="landing-grid landing-trash-grid" hidden></div>
     </section>
 
@@ -86,6 +90,7 @@ export function mountLandingPanel({ container, callbacks }) {
   const recentCount = shell.querySelector('#landing-recent-count');
   const demosGrid = shell.querySelector('#landing-demos-grid');
   const trashToggle = shell.querySelector('#landing-trash-toggle');
+  const trashEmptyBtn = shell.querySelector('#landing-trash-empty');
   const trashGrid = shell.querySelector('#landing-trash-grid');
   const trashCount = shell.querySelector('#landing-trash-count');
 
@@ -106,6 +111,7 @@ export function mountLandingPanel({ container, callbacks }) {
     trashToggle.setAttribute('aria-expanded', String(trashOpen));
     trashGrid.hidden = !trashOpen;
   };
+  trashEmptyBtn.onclick = () => callbacks.onEmptyTrash();
 
   function renderCards(gridEl, cards, kind) {
     gridEl.replaceChildren();
@@ -126,6 +132,7 @@ export function mountLandingPanel({ container, callbacks }) {
       renderCards(trashGrid, trashed, 'trashed');
       recentCount.textContent = recent.length === 1 ? '1 project' : `${ recent.length } projects`;
       trashCount.textContent = trashed.length ? `${ trashed.length } item${ trashed.length === 1 ? '' : 's' }` : 'Empty';
+      trashEmptyBtn.hidden = !trashed.length;
     },
     showNotice({ message, level = 'info' }) {
       noticeEl.textContent = message;
@@ -162,7 +169,7 @@ function renderCard(project, kind, callbacks) {
   const seamCount = project.progression?.seams?.filter(Boolean).length ?? 0;
   const meta = kind === 'demo'
     ? escapeHtml(project.blurb ?? `${ chordCount } chord${ chordCount === 1 ? '' : 's' }`)
-    : `${ chordCount } chord${ chordCount === 1 ? '' : 's' } · ${ seamCount } transition${ seamCount === 1 ? '' : 's' } · ${ formatRelative(project.updatedAt) }`;
+    : `${ chordCount } chord${ chordCount === 1 ? '' : 's' } · ${ seamCount } transition${ seamCount === 1 ? '' : 's' }`;
 
   // Demo cards are one big clickable target that opens a copy — no separate
   // primary button, no ambiguity about what a click does. Recent + trashed
@@ -185,8 +192,6 @@ function renderCard(project, kind, callbacks) {
   card.className = `landing-card landing-card-${ kind }`;
   card.dataset.projectId = project.id;
 
-  const primaryLabel = kind === 'trashed' ? 'Restore' : 'Open';
-
   const iconRow = kind === 'recent'
     ? [
         iconButton({ icon: 'rename', label: 'Rename', action: 'rename' }),
@@ -196,25 +201,33 @@ function renderCard(project, kind, callbacks) {
       ].join('')
     : '';
 
+  const updatedAt = project.updatedAt ? `<span class="landing-card-updated">${ formatRelative(project.updatedAt) }</span>` : '';
+  const primaryAction = kind === 'trashed'
+    ? '<button class="landing-card-primary" type="button">Restore</button>'
+    : '';
+  const bodyTag = kind === 'recent' ? 'button' : 'div';
+  const bodyAttrs = kind === 'recent' ? 'type="button"' : '';
+
   card.innerHTML = `
-    <button class="landing-card-body" type="button">
-      <span class="landing-card-name">${ escapeHtml(project.name) }</span>
+    <${ bodyTag } class="landing-card-body" ${ bodyAttrs }>
+      <div class="landing-card-title-row">
+        <span class="landing-card-name">${ escapeHtml(project.name) }</span>
+        ${ updatedAt }
+      </div>
       <span class="landing-card-meta">${ meta }</span>
-    </button>
+    </${ bodyTag }>
     <div class="landing-card-actions">
-      <button class="landing-card-primary" type="button">${ primaryLabel }</button>
+      ${ primaryAction }
       ${ iconRow }
       ${ kind === 'trashed' ? iconButton({ icon: 'trash', label: 'Delete permanently', action: 'delete', dangerous: true }) : '' }
     </div>
   `;
 
-  const body = card.querySelector('.landing-card-body');
   const primaryBtn = card.querySelector('.landing-card-primary');
 
   if (kind === 'recent') {
     const open = () => callbacks.onOpenProject(project.id);
-    body.onclick = open;
-    primaryBtn.onclick = open;
+    card.querySelector('.landing-card-body').onclick = open;
     card.querySelector('.landing-card-actions').addEventListener('click', (event) => {
       const btn = event.target.closest('[data-action]');
       if (!btn) return;
@@ -232,7 +245,6 @@ function renderCard(project, kind, callbacks) {
       }
     });
   } else {
-    body.onclick = () => callbacks.onRestoreProject(project.id);
     primaryBtn.onclick = () => callbacks.onRestoreProject(project.id);
     card.querySelector('.landing-card-actions').addEventListener('click', (event) => {
       const btn = event.target.closest('[data-action="delete"]');

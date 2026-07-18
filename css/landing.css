@@ -83,14 +83,6 @@
     border-bottom: 0
 }
 
-.landing-actions {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-    border-bottom: 1px solid var(--hairline)
-}
-
 .landing-primary,
 .landing-secondary {
     padding: 11px 20px;
@@ -100,6 +92,19 @@
     text-transform: uppercase;
     cursor: pointer;
     transition: border-color .15s ease, color .15s ease, background .15s ease
+}
+
+.landing-section-actions {
+    display: flex;
+    align-items: center;
+    margin-left: auto
+}
+
+.landing-section-utilities {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap
 }
 
 .landing-primary {
@@ -170,7 +175,16 @@
     letter-spacing: .1em
 }
 
+.landing-trash-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px
+}
+
 .landing-trash-toggle {
+    flex: 1;
+    margin-bottom: 0;
     cursor: pointer
 }
 
@@ -182,6 +196,23 @@
 
 .landing-trash-toggle[aria-expanded="true"] .landing-trash-caret {
     transform: rotate(180deg)
+}
+
+.landing-trash-empty {
+    padding: 7px 14px;
+    border: 1px solid rgba(200, 123, 103, .3);
+    background: transparent;
+    color: var(--danger);
+    font: 500 .62rem var(--font-mono);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease
+}
+
+.landing-trash-empty:hover {
+    border-color: rgba(200, 123, 103, .6);
+    background: rgba(200, 123, 103, .08)
 }
 
 .landing-grid {
@@ -244,7 +275,7 @@
     background: var(--panel-2);
     border: 1px solid var(--hairline);
     padding: 20px;
-    min-height: 130px;
+    min-height: 138px;
     transition: border-color .15s ease, transform .15s ease
 }
 
@@ -261,15 +292,39 @@
     border: 0;
     color: inherit;
     text-align: left;
-    cursor: pointer;
     flex: 1
+}
+
+.landing-card-recent {
+    cursor: pointer
+}
+
+.landing-card-recent .landing-card-body {
+    cursor: pointer
+}
+
+.landing-card-title-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 12px
 }
 
 .landing-card-name {
     font: 500 1.05rem var(--font-display);
     letter-spacing: -.01em;
     color: var(--ivory);
-    line-height: 1.25
+    line-height: 1.25;
+    min-width: 0
+}
+
+.landing-card-updated {
+    padding-top: 3px;
+    color: var(--tan-dim);
+    font: 400 .62rem var(--font-mono);
+    letter-spacing: .04em;
+    line-height: 1.25;
+    white-space: nowrap
 }
 
 .landing-card-meta {
@@ -286,8 +341,29 @@
     position: relative
 }
 
+.landing-card-recent .landing-card-actions {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    margin: 0;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(3px);
+    transition: opacity .15s ease, transform .15s ease
+}
+
+.landing-card-recent:hover .landing-card-actions,
+.landing-card-recent:focus-within .landing-card-actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0)
+}
+
 .landing-card-primary {
-    padding: 6px 12px;
+    display: inline-flex;
+    align-items: center;
+    height: 30px;
+    padding: 0 14px;
     border: 1px solid var(--hairline);
     background: transparent;
     color: var(--tan);
@@ -337,8 +413,17 @@
     background: rgba(200, 123, 103, .08)
 }
 
+.landing-card-icon.danger {
+    color: var(--danger);
+    border-color: rgba(200, 123, 103, .38)
+}
+
 .landing-card-actions > .landing-card-icon:first-of-type {
     margin-left: auto
+}
+
+.landing-card-recent .landing-card-actions > .landing-card-icon:first-of-type {
+    margin-left: 0
 }
 
 .landing-card-demo {
@@ -393,5 +478,15 @@
 
     .landing-scroll {
         padding: 0 24px 60px
+    }
+}
+
+/* There is no hover state on touch screens, so keep the project controls
+   available there instead of making them undiscoverable. */
+@media (hover: none), (pointer: coarse) {
+    .landing-card-recent .landing-card-actions {
+        opacity: 1;
+        pointer-events: auto;
+        transform: none
     }
 }

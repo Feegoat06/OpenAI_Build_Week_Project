@@ -76,6 +76,16 @@ export function createLandingView({ store }) {
             await tryStore(() => store.deleteProject(id));
             await refresh();
           },
+          onEmptyTrash: async () => {
+            const trashed = await store.listTrashed();
+            if (!trashed.length) return;
+            const label = trashed.length === 1 ? '1 project' : `${ trashed.length } projects`;
+            if (!confirm(`Permanently delete ${ label } in the trash? This can't be undone.`)) return;
+            for (const project of trashed) {
+              await tryStore(() => store.deleteProject(project.id));
+            }
+            await refresh();
+          },
         },
       });
 
