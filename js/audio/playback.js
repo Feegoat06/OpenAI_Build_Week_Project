@@ -18,6 +18,34 @@ let stopTimers = [];
 let progressFrame = 0;
 let playbackGeneration = 0;
 
+/**
+ * Stop and clear the shared progression timeline.
+ *
+ * UI timers only control highlights; scheduled Tone events live on their own
+ * audio clock. Clearing the Transport is therefore required to prevent notes
+ * that have not started yet from sounding after the user presses Stop.
+ */
+function cancelTransport() {
+  const transport = typeof window !== 'undefined' ? window.Tone?.Transport : null;
+  if (!transport) return;
+  transport.stop();
+  transport.cancel(0);
+}
+
+/** Release the currently sounding voices with a click-safe, near-zero tail. */
+function releaseSamplerImmediately() {
+  if (!sampler || typeof window === 'undefined' || !window.Tone) return;
+  const previousRelease = sampler.release;
+  try {
+    // The normal one-second piano release is musical during playback but is
+    // perceived as audio lag when Stop is expected to freeze the score now.
+    sampler.release = 0.015;
+    sampler.releaseAll(window.Tone.now());
+  } finally {
+    sampler.release = previousRelease;
+  }
+}
+
 function getSampler() {
   if (!window.Tone) throw new Error('Tone.js is not available.');
   if (!sampler) {
@@ -81,17 +109,32 @@ export async function playSegments(segments, settings, onMeasure, onStop, onProg
   const measureLength = settings.timeSig.num * 4 / settings.timeSig.den;
   const leadIn = 0.08;
   const now = Tone.now() + leadIn;
+  const transport = Tone.Transport;
   let end = 0;
   let lastMeasure = -1;
   for (const event of coalesceTiedSegments(segments, measureLength)) {
     const at = event.startBeat * secondsPerBeat;
-    instrument.triggerAttackRelease(event.notes.map(frequency), event.durationBeats * secondsPerBeat * 0.96, now + at);
+    // Schedule through Transport instead of directly on Web Audio. Stop can
+    // now cancel future attacks rather than only hiding their visual timers.
+    transport.schedule((time) => {
+      if (generation !== playbackGeneration) return;
+      instrument.triggerAttackRelease(
+        event.notes.map(frequency),
+        event.durationBeats * secondsPerBeat * 0.96,
+        time,
+      );
+    }, at);
     end = Math.max(end, at + event.durationBeats * secondsPerBeat);
     if (event.measureIndex !== lastMeasure) {
-      stopTimers.push(setTimeout(() => onMeasure(event.measureIndex), (leadIn + at) * 1000));
+      stopTimers.push(setTimeout(() => {
+        // A timeout may already be queued when Stop is clicked. The generation
+        // guard prevents that stale callback from restoring a visual measure.
+        if (generation === playbackGeneration) onMeasure(event.measureIndex);
+      }, (leadIn + at) * 1000));
       lastMeasure = event.measureIndex;
     }
   }
+  transport.start(now, 0);
   const measureCount = Math.max(1, Math.ceil(end / (measureLength * secondsPerBeat)));
   const visualStart = performance.now() + leadIn * 1000;
   const tickProgress = (timestamp) => {
@@ -105,8 +148,10 @@ export async function playSegments(segments, settings, onMeasure, onStop, onProg
   onProgress?.(0, 0);
   progressFrame = requestAnimationFrame(tickProgress);
   stopTimers.push(setTimeout(() => {
+    if (generation !== playbackGeneration) return;
     cancelAnimationFrame(progressFrame);
     progressFrame = 0;
+    cancelTransport();
     onProgress?.(1, null);
     onMeasure(null);
     onStop?.();
@@ -119,7 +164,11 @@ export function stopPlayback() {
   stopTimers = [];
   cancelAnimationFrame(progressFrame);
   progressFrame = 0;
-  sampler?.releaseAll();
+  // Cancel future notes first, then silence the voice that is already active.
+  // Keeping both operations synchronous makes the visual pause and audio stop
+  // share the same button event instead of drifting onto separate timelines.
+  cancelTransport();
+  releaseSamplerImmediately();
 }
 
 /** Ensure the audio context is started + samples are loaded before triggering. */

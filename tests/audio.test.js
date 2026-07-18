@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { coalesceTiedSegments } from '../js/audio/playback.js';
+import { coalesceTiedSegments, stopPlayback } from '../js/audio/playback.js';
 
 test('tied notation fragments schedule as one sustained playback event', () => {
   const events = coalesceTiedSegments([
@@ -19,4 +19,29 @@ test('distinct source material still starts a new playback event', () => {
     { notes: [60], durationBeats: 1, sourceId: 's0-0', measureIndex: 0, startBeat: 1 },
   ], 4);
   assert.equal(events.length, 2);
+});
+
+test('stopPlayback cancels future audio events on the Tone transport', () => {
+  const calls = [];
+  const previousWindow = globalThis.window;
+  const previousCancelAnimationFrame = globalThis.cancelAnimationFrame;
+  globalThis.window = {
+    Tone: {
+      Transport: {
+        stop: () => calls.push('stop'),
+        cancel: (after) => calls.push(['cancel', after]),
+      },
+    },
+  };
+  globalThis.cancelAnimationFrame = () => {};
+
+  try {
+    stopPlayback();
+    assert.deepEqual(calls, ['stop', ['cancel', 0]]);
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window;
+    else globalThis.window = previousWindow;
+    if (previousCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
+    else globalThis.cancelAnimationFrame = previousCancelAnimationFrame;
+  }
 });
