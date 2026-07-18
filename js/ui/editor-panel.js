@@ -1,6 +1,6 @@
 /**
- * Left composition workspace: score settings, chord list, and transition
- * seams. Owns every DOM node inside <aside class="editor-pane">.
+ * Left composition workspace: score settings plus one ordered progression list.
+ * Each transition is rendered at the seam between its two adjacent chord rows.
  *
  * State lives in main.js; this module renders from it and hands user events
  * back through `callbacks`. Every render is idempotent — main.js calls
@@ -18,6 +18,9 @@ const TEMPLATE = `
     <p>Progression coach</p>
   </div>
   <span class="build-tag">EDU / 01</span>
+  <button id="toggle-score-settings" class="icon-button" type="button" aria-label="Show score settings" aria-controls="score-settings" aria-expanded="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.6 3.3h4.8l.6 2.2a7.3 7.3 0 0 1 1.7 1l2.1-.7 2.4 4.1-1.6 1.6a7 7 0 0 1 0 2l1.6 1.6-2.4 4.1-2.1-.7a7.3 7.3 0 0 1-1.7 1l-.6 2.2H9.6L9 19.5a7.3 7.3 0 0 1-1.7-1l-2.1.7-2.4-4.1 1.6-1.6a7 7 0 0 1 0-2L2.8 9.9l2.4-4.1 2.1.7a7.3 7.3 0 0 1 1.7-1l.6-2.2Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+  </button>
 </header>
 
 <div class="editor-scroll">
@@ -27,8 +30,8 @@ const TEMPLATE = `
     <p class="intro-copy">Place exact piano voicings, shape the connective tissue, then listen for what changed.</p>
   </section>
 
-  <section class="editor-section" aria-labelledby="score-settings-title">
-    <div class="section-title"><span>01</span>
+  <section id="score-settings" class="settings-panel" aria-labelledby="score-settings-title" hidden>
+    <div class="section-title">
       <h2 id="score-settings-title">Score settings</h2>
     </div>
     <div class="settings-grid">
@@ -61,19 +64,11 @@ const TEMPLATE = `
   </section>
 
   <section class="editor-section" aria-labelledby="chords-title">
-    <div class="section-title"><span>02</span>
+    <div class="section-title">
       <h2 id="chords-title">Chord material</h2><button id="add-chord" class="text-action">+ Add chord</button>
     </div>
     <div class="table-head"><span>Voicing</span><span>Beats</span><span></span></div>
-    <div id="chord-list" class="chord-list"></div>
-  </section>
-
-  <section class="editor-section" aria-labelledby="seams-title">
-    <div class="section-title"><span>03</span>
-      <h2 id="seams-title">Transitions</h2>
-    </div>
-    <p class="section-copy">Techniques appear only when the departing chord has enough space.</p>
-    <div id="seam-list" class="seam-list"></div>
+    <div id="progression-list" class="progression-list"></div>
   </section>
 </div>
 `;
@@ -82,14 +77,18 @@ export function mountEditorPanel({ container, callbacks }) {
   container.classList.add('editor-pane');
   container.innerHTML = TEMPLATE;
 
-  const chordListEl = container.querySelector('#chord-list');
-  const seamListEl = container.querySelector('#seam-list');
+  const progressionListEl = container.querySelector('#progression-list');
+  const scoreSettingsEl = container.querySelector('#score-settings');
+  const scoreSettingsButton = container.querySelector('#toggle-score-settings');
   const tempoInput = container.querySelector('#tempo');
   const tempoValue = container.querySelector('#tempo-value');
   const timeSigSelect = container.querySelector('#time-signature');
   const keySigSelect = container.querySelector('#key-signature');
   const clefSelect = container.querySelector('#clef');
   const addChordBtn = container.querySelector('#add-chord');
+  let scoreSettingsOpen = false;
+  const expandedSeamIndexes = new Set();
+  let directEditorOpenForCurrentRender = null;
 
   tempoInput.oninput = (event) => {
     tempoValue.value = event.target.value;
@@ -102,6 +101,12 @@ export function mountEditorPanel({ container, callbacks }) {
   keySigSelect.onchange = (event) => callbacks.onKeyChange(Number(event.target.value));
   clefSelect.onchange = (event) => callbacks.onClefChange(event.target.value);
   addChordBtn.onclick = () => callbacks.onAddChord();
+  scoreSettingsButton.onclick = () => {
+    scoreSettingsOpen = !scoreSettingsOpen;
+    scoreSettingsEl.hidden = !scoreSettingsOpen;
+    scoreSettingsButton.setAttribute('aria-expanded', String(scoreSettingsOpen));
+    scoreSettingsButton.setAttribute('aria-label', `${ scoreSettingsOpen ? 'Hide' : 'Show' } score settings`);
+  };
 
   function syncSettings(settings) {
     tempoInput.value = String(settings.tempo);
@@ -111,68 +116,106 @@ export function mountEditorPanel({ container, callbacks }) {
     clefSelect.value = settings.clef;
   }
 
-  function renderChords(progression) {
-    chordListEl.replaceChildren();
-    if (!progression.chords.length) {
-      chordListEl.innerHTML = '<div class="empty-state">No material yet. Add a chord and choose its exact piano voicing.</div>';
-      return;
-    }
+  function makeChordRow(progression, chord, index) {
     const timeSig = progression.settings.timeSig;
     const beatChoices = [0.5, 1, 1.5, 2, 3, 4, 6, 8];
     const beatLabel = (beats) => beats === 0.5 ? '½' : beats === 1.5 ? '1½' : String(beats);
-    progression.chords.forEach((chord, index) => {
-      const row = document.createElement('article');
-      row.className = 'chord-row';
-      const notes = chord.notes.map((note) => noteName(note, progression.settings.key)).join(' · ');
-      const currentBeats = Number(barsToBeats(chord.bars, timeSig).toFixed(4));
-      const options = beatChoices.includes(currentBeats) ? beatChoices : [...beatChoices, currentBeats].sort((a, b) => a - b);
-      const displayName = escapeHtml(chordDisplayName(chord, progression.settings.key));
-      row.innerHTML = `<button class="chord-main" aria-label="Edit chord ${ index + 1 }"><strong>${ String(index + 1).padStart(2, '0') } · ${ displayName }</strong><small>${ escapeHtml(notes) }</small></button><select class="chord-bars" aria-label="Beats for chord ${ index + 1 }">${ options.map((beats) => `<option value="${ beats }" ${ beats === currentBeats ? 'selected' : '' }>${ beatLabel(beats) }</option>`).join('') }</select><button class="delete-button" aria-label="Delete chord ${ index + 1 }">×</button>`;
-      row.querySelector('.chord-main').onclick = () => callbacks.onEditChord(chord);
-      row.querySelector('.chord-bars').onchange = (event) => callbacks.onSetChordBeats(chord, Number(event.target.value));
-      row.querySelector('.delete-button').onclick = () => callbacks.onDeleteChord(chord);
-      chordListEl.append(row);
+    const row = document.createElement('article');
+    row.className = 'chord-row';
+    const notes = chord.notes.map((note) => noteName(note, progression.settings.key)).join(' · ');
+    const currentBeats = Number(barsToBeats(chord.bars, timeSig).toFixed(4));
+    const options = beatChoices.includes(currentBeats) ? beatChoices : [...beatChoices, currentBeats].sort((a, b) => a - b);
+    const displayName = escapeHtml(chordDisplayName(chord, progression.settings.key));
+    row.innerHTML = `<button class="chord-main" aria-label="Edit ${ displayName }"><strong>${ displayName }</strong><small>${ escapeHtml(notes) }</small></button><select class="chord-bars" aria-label="Beats for ${ displayName }">${ options.map((beats) => `<option value="${ beats }" ${ beats === currentBeats ? 'selected' : '' }>${ beatLabel(beats) }</option>`).join('') }</select><button class="delete-button" aria-label="Delete ${ displayName }">×</button>`;
+    row.querySelector('.chord-main').onclick = () => callbacks.onEditChord(chord);
+    row.querySelector('.chord-bars').onchange = (event) => callbacks.onSetChordBeats(chord, Number(event.target.value));
+    row.querySelector('.delete-button').onclick = () => callbacks.onDeleteChord(chord);
+    return row;
+  }
+
+  function formatBeatCost(beats) {
+    return `${ beats } beat${ beats > 1 ? 's' : '' }`;
+  }
+
+  function addTechniqueOptions(select, techniques, budget) {
+    select.add(new Option('Direct transition (None)', ''));
+    techniques.forEach((technique) => {
+      const affordable = technique.beatCost <= budget;
+      const option = new Option(`${ technique.name } · ${ formatBeatCost(technique.beatCost) }`, technique.id, false, false);
+      option.disabled = !technique.valid || !affordable;
+      option.title = !technique.valid ? technique.reason : (!affordable ? `Requires ${ formatBeatCost(technique.beatCost) }; only ${ budget } available.` : '');
+      select.add(option);
     });
   }
 
-  function renderSeams(progression, selectedSeam) {
-    seamListEl.replaceChildren();
-    if (!progression.seams.length) {
-      seamListEl.innerHTML = '<div class="empty-state">Add at least two chords to create a transition seam.</div>';
+  function makeTransitionSeam(progression, index, selectedSeam) {
+    const selectedTechniqueId = progression.seams[index];
+    const fromChord = progression.chords[index];
+    const toChord = progression.chords[index + 1];
+    const budget = availableBeats(chordTotalBeats(fromChord, progression.settings.timeSig));
+    const techniques = evaluateAllTechniques(fromChord, toChord);
+    const selectedTechnique = techniques.find((technique) => technique.id === selectedTechniqueId);
+    const fromName = escapeHtml(chordDisplayName(fromChord, progression.settings.key));
+    const toName = escapeHtml(chordDisplayName(toChord, progression.settings.key));
+    const isOpen = expandedSeamIndexes.has(index);
+    const seam = document.createElement('article');
+    seam.className = `transition-seam ${ selectedTechnique ? 'has-technique' : 'is-direct' } ${ selectedSeam === index ? 'selected' : '' } ${ isOpen ? 'is-open' : '' }`;
+    const toggleLabel = selectedTechnique
+      ? `${ escapeHtml(selectedTechnique.name) } · ${ formatBeatCost(selectedTechnique.beatCost) }`
+      : '+ Add transition';
+    seam.innerHTML = `<div class="transition-connector"><button class="transition-toggle" type="button" aria-expanded="${ isOpen }"><span class="transition-rule" aria-hidden="true"></span><span class="transition-label">${ toggleLabel }</span><span class="transition-rule" aria-hidden="true"></span></button><button class="transition-explain" type="button">Explain</button></div>${ isOpen ? `<div class="transition-editor"><div class="transition-editor-copy"><strong>${ fromName } → ${ toName }</strong><small>${ budget } beat${ budget === 1 ? '' : 's' } available in the departing tail</small></div><label>Technique <select class="transition-select" aria-label="Technique for ${ fromName } to ${ toName }"></select></label></div>` : '' }`;
+    const toggle = seam.querySelector('.transition-toggle');
+    toggle.onclick = () => {
+      if (isOpen) {
+        expandedSeamIndexes.delete(index);
+      } else {
+        expandedSeamIndexes.add(index);
+        // A direct seam survives the selection render that opened it, then
+        // closes on the next state update unless a technique is chosen.
+        directEditorOpenForCurrentRender = selectedTechnique ? null : index;
+      }
+      callbacks.onSelectSeam(index);
+    };
+    seam.querySelector('.transition-explain').onclick = () => callbacks.onExplainSeam(index);
+    const select = seam.querySelector('.transition-select');
+    if (select) {
+      addTechniqueOptions(select, techniques, budget);
+      select.value = selectedTechniqueId ?? '';
+      select.onchange = () => {
+        const techniqueId = select.value || null;
+        if (techniqueId) expandedSeamIndexes.add(index);
+        else expandedSeamIndexes.delete(index);
+        directEditorOpenForCurrentRender = null;
+        callbacks.onSetSeamTechnique(index, techniqueId);
+      };
+    }
+    return seam;
+  }
+
+  function renderProgression(progression, selectedSeam) {
+    progressionListEl.replaceChildren();
+    if (!progression.chords.length) {
+      progressionListEl.innerHTML = '<div class="empty-state">No material yet. Add a chord and choose its exact piano voicing.</div>';
       return;
     }
-    progression.seams.forEach((selected, index) => {
-      const budget = availableBeats(chordTotalBeats(progression.chords[index], progression.settings.timeSig));
-      const row = document.createElement('article');
-      row.className = `seam-row ${ selectedSeam === index ? 'selected' : '' }`;
-      const from = escapeHtml(chordDisplayName(progression.chords[index], progression.settings.key));
-      const to = escapeHtml(chordDisplayName(progression.chords[index + 1], progression.settings.key));
-      row.innerHTML = `<div class="seam-top"><span class="seam-index">S${ String(index + 1).padStart(2, '0') }</span><div class="seam-label"><strong>${ from } → ${ to }</strong><small>${ budget } beat${ budget === 1 ? '' : 's' } available in the departing tail</small></div></div><div class="seam-actions"><select class="seam-select" aria-label="Technique for transition ${ index + 1 }"></select><button class="seam-explain">Explain</button></div>`;
-      const select = row.querySelector('.seam-select');
-      select.add(new Option('Direct transition', ''));
-      evaluateAllTechniques(progression.chords[index], progression.chords[index + 1]).forEach((technique) => {
-        const affordable = technique.beatCost <= budget;
-        const option = new Option(`${ technique.name } · ${ technique.beatCost }b`, technique.id, false, false);
-        option.disabled = !technique.valid || !affordable;
-        option.title = !technique.valid ? technique.reason : (!affordable ? `requires ${ technique.beatCost } beats; only ${ budget } available` : '');
-        select.add(option);
-      });
-      select.value = selected ?? '';
-      select.onchange = () => callbacks.onSetSeamTechnique(index, select.value || null);
-      row.querySelector('.seam-explain').onclick = () => callbacks.onExplainSeam(index);
-      row.onclick = (event) => {
-        if (event.target === select || event.target.closest('button')) return;
-        callbacks.onSelectSeam(index);
-      };
-      seamListEl.append(row);
+    expandedSeamIndexes.forEach((index) => {
+      const isDirect = !progression.seams[index];
+      const isOutOfRange = index >= progression.seams.length;
+      if (isOutOfRange || (isDirect && directEditorOpenForCurrentRender !== index)) {
+        expandedSeamIndexes.delete(index);
+      }
+    });
+    directEditorOpenForCurrentRender = null;
+    progression.chords.forEach((chord, index) => {
+      progressionListEl.append(makeChordRow(progression, chord, index));
+      if (index < progression.seams.length) progressionListEl.append(makeTransitionSeam(progression, index, selectedSeam));
     });
   }
 
   return {
     render({ progression, selectedSeam }) {
       syncSettings(progression.settings);
-      renderChords(progression);
-      renderSeams(progression, selectedSeam);
+      renderProgression(progression, selectedSeam);
     },
   };
 }

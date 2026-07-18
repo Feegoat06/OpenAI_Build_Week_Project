@@ -62,11 +62,11 @@ body {
     color: var(--danger)
 }
 
-/* Shared form select styling used by settings-grid, modal-controls, chord-bars, seam-select. */
+/* Shared form select styling used by settings-grid, modal-controls, chord-bars, and transition editors. */
 .settings-grid select,
 .modal-controls select,
 .chord-bars,
-.seam-select {
+.transition-select {
     width: 100%;
     border: 1px solid var(--hairline);
     border-radius: 0;
@@ -80,7 +80,7 @@ body {
 .settings-grid select:focus,
 .modal-controls select:focus,
 .chord-bars:focus,
-.seam-select:focus {
+.transition-select:focus {
     border-color: var(--anchor)
 }
 

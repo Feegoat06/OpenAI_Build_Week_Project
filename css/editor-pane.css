@@ -68,6 +68,32 @@
     letter-spacing: .14em
 }
 
+.icon-button {
+    display: grid;
+    place-items: center;
+    width: 31px;
+    height: 31px;
+    padding: 0;
+    border: 1px solid var(--hairline);
+    background: transparent;
+    color: var(--tan-dim);
+    cursor: pointer
+}
+
+.icon-button:hover,
+.icon-button[aria-expanded="true"] {
+    border-color: rgba(209, 161, 90, .55);
+    color: var(--anchor)
+}
+
+.icon-button svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5
+}
+
 .editor-scroll {
     overflow: auto;
     padding-bottom: 70px
@@ -104,16 +130,16 @@
     border-bottom: 1px solid var(--hairline)
 }
 
+.settings-panel {
+    padding: 25px 32px 27px;
+    border-bottom: 1px solid var(--hairline)
+}
+
 .section-title {
     display: flex;
     align-items: center;
     gap: 12px;
     margin-bottom: 18px
-}
-
-.section-title>span {
-    color: var(--tan-dim);
-    font: 400 .6rem var(--font-mono)
 }
 
 .section-title h2 {
@@ -189,8 +215,7 @@
     text-transform: uppercase
 }
 
-.chord-list,
-.seam-list {
+.progression-list {
     display: grid;
     gap: 7px
 }
@@ -243,60 +268,93 @@
     font: 400 .68rem/1.5 var(--font-mono)
 }
 
-.seam-row {
-    border: 1px solid var(--hairline);
-    background: rgba(23, 18, 14, .65);
-    padding: 11px;
+.transition-seam {
     display: grid;
-    gap: 10px;
-    transition: border-color .2s
+    gap: 8px;
+    padding: 2px 0
 }
 
-.seam-row.selected {
-    border-color: rgba(209, 161, 90, .7);
-    box-shadow: inset 2px 0 var(--anchor)
-}
-
-.seam-top {
+.transition-connector {
     display: flex;
-    align-items: start;
-    gap: 10px
+    align-items: center;
+    gap: 8px
 }
 
-.seam-index {
+.transition-toggle {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    min-width: 0;
+    gap: 8px;
+    padding: 6px 0;
+    border: 0;
+    background: transparent;
+    color: var(--tan-dim);
+    cursor: pointer
+}
+
+.transition-toggle:hover .transition-label,
+.transition-seam.selected .transition-label {
+    color: var(--anchor)
+}
+
+.transition-rule {
+    flex: 1;
+    min-width: 12px;
+    border-top: 1px dashed var(--hairline)
+}
+
+.transition-label {
+    white-space: nowrap;
+    color: var(--tan-dim);
+    font: 500 .61rem var(--font-mono);
+    letter-spacing: .03em;
+}
+
+.has-technique .transition-label {
+    color: var(--ivory)
+}
+
+.transition-explain {
+    border: 1px solid rgba(209, 161, 90, .45);
+    background: transparent;
     color: var(--anchor);
-    font: 400 .6rem var(--font-mono)
+    padding: 6px 8px;
+    font: 500 .59rem var(--font-mono);
+    cursor: pointer
 }
 
-.seam-label {
-    flex: 1
+.transition-editor {
+    display: grid;
+    gap: 11px;
+    margin-left: 18px;
+    padding: 13px 13px 13px 15px;
+    border-left: 2px solid rgba(209, 161, 90, .55);
+    background: rgba(23, 18, 14, .65)
 }
 
-.seam-label strong {
-    display: block;
-    font: 500 .7rem var(--font-mono)
+.transition-editor-copy {
+    display: grid;
+    gap: 4px
 }
 
-.seam-label small {
-    display: block;
-    margin-top: 4px;
+.transition-editor-copy strong {
+    color: var(--ivory);
+    font: 500 .68rem var(--font-mono)
+}
+
+.transition-editor-copy small {
     color: var(--tan-dim);
     font: 400 .56rem var(--font-mono)
 }
 
-.seam-actions {
+.transition-editor label {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 7px
-}
-
-.seam-explain {
-    border: 1px solid rgba(209, 161, 90, .45);
-    background: transparent;
-    color: var(--anchor);
-    padding: 9px 10px;
-    font: 500 .59rem var(--font-mono);
-    cursor: pointer
+    gap: 7px;
+    color: var(--tan-dim);
+    font: 400 .58rem var(--font-mono);
+    letter-spacing: .1em;
+    text-transform: uppercase
 }
 
 @media(max-width:1000px) {
