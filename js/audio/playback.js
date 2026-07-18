@@ -3,8 +3,8 @@
  *
  * Two consumption modes:
  *   - `playSegments(compileOutput, …)` schedules the whole progression
- *     against Tone.Transport, feeding a per-measure callback so the score can
- *     highlight the bar currently sounding.
+ *     against Tone.Transport, feeding a per-measure callback so the sheet
+ *     music can highlight the bar currently sounding.
  *   - `playNote` / `playChord` fire single events NOW. Used by the piano modal
  *     for click-to-preview (per-key audio + the preview panel's play button).
  *
@@ -38,7 +38,7 @@ function releaseSamplerImmediately() {
   const previousRelease = sampler.release;
   try {
     // The normal one-second piano release is musical during playback but is
-    // perceived as audio lag when Stop is expected to freeze the score now.
+    // perceived as audio lag when Stop is expected to freeze the sheet music now.
     sampler.release = 0.015;
     sampler.releaseAll(window.Tone.now());
   } finally {

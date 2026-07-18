@@ -1,7 +1,9 @@
 /**
  * The "Shape the chord" modal.
  *
- * Two entry points:
+ * Three entry points:
+ *   - `mountPianoModal({ container })` injects the dialog template into a
+ *     mount div and returns the `<dialog>` element for the other two.
  *   - `populateChordControls(dialog)` runs once at boot to fill the static
  *     controls (root select, quality chip row).
  *   - `openPianoModal(dialog, existingChord, onSave, timeSig, key)` opens the
@@ -23,6 +25,65 @@ import { QUALITIES, inferChordIdentity, noteName, notesFrom } from '../engine/ch
 import { playNote, playChord } from '../audio/playback.js';
 import { beatsToBars, barsToBeats } from '../state.js';
 import { pitchClassOf, octaveOf, spellPitchClass, vexKey } from '../util/midi.js';
+
+const DIALOG_TEMPLATE = `
+<dialog id="piano-dialog">
+  <form method="dialog" class="dialog-shell" onsubmit="return false">
+    <header class="dialog-header">
+      <div>
+        <p class="kicker">Explicit voicing</p>
+        <h2>Shape the chord</h2>
+        <p>Pick a root and quality, then toggle any key to shape the octave, doubling, and inversion.</p>
+      </div>
+      <button id="modal-cancel" class="close-button" aria-label="Close chord editor">×</button>
+    </header>
+    <div class="modal-controls">
+      <label><span>Root</span><select id="modal-root"></select></label>
+      <label><span>Duration</span><select id="modal-bars">
+        <option value="0.5">½ bar</option>
+        <option value="1" selected>1 bar</option>
+        <option value="1.5">1½ bars</option>
+        <option value="2">2 bars</option>
+        <option value="3">3 bars</option>
+        <option value="4">4 bars</option>
+      </select></label>
+    </div>
+    <div class="quality-chips" id="modal-quality-chips" role="group" aria-label="Chord quality"></div>
+    <div class="piano-stage">
+      <div class="piano-column">
+        <div class="piano-instruction">
+          <p>Click keys to toggle exact notes</p>
+        </div>
+        <div id="piano-keys" class="piano" role="group" aria-label="Piano note selector"></div>
+        <div class="selection-readout">
+          <div><span>Pitch names</span><strong id="selected-notes">No notes selected</strong></div>
+        </div>
+      </div>
+      <aside class="preview-panel" aria-label="Chord preview">
+        <div class="preview-header">
+          <div class="preview-title"><span>Preview</span><button type="button" id="preview-play" class="preview-play" aria-label="Play chord preview">▶</button></div>
+          <span id="octave-readout">Octave 4</span>
+        </div>
+        <div class="preview-sheet" id="preview-sheet" role="button" tabindex="0" aria-label="Play chord preview"></div>
+        <div class="octave-controls">
+          <button type="button" id="octave-down" aria-label="Shift down one octave">▼ Octave</button>
+          <button type="button" id="octave-up" aria-label="Shift up one octave">▲ Octave</button>
+        </div>
+      </aside>
+    </div>
+    <footer class="dialog-footer">
+      <p id="voicing-status">The exact selected notes are stored—never an inversion preset.</p>
+      <button id="modal-save" class="save-button" type="button">Save exact voicing <span>→</span></button>
+    </footer>
+  </form>
+</dialog>
+`;
+
+/** Inject the dialog HTML into `container` and return the <dialog> element. */
+export function mountPianoModal({ container }) {
+  container.innerHTML = DIALOG_TEMPLATE;
+  return container.querySelector('#piano-dialog');
+}
 
 const BLACK_PITCH_CLASSES = new Set([1, 3, 6, 8, 10]);
 // Root select always shows both enharmonic spellings; the user picks a pitch
@@ -53,11 +114,12 @@ function detect(notes) {
 
 /**
  * Draw a single-chord VexFlow stave inside the preview panel. Intentionally
- * NOT a call into `notation/render.js::renderNotation`: that function targets
- * the main score, has a 600px minimum width, and needs measure math. This
- * mini preview is one whole note on one stave and stays under ~260px wide.
- * Clef auto-flips (bass < 60, treble ≥ 60) using median MIDI, matching the
- * score's `resolvedClef` behavior. Accidentals follow the progression's key.
+ * NOT a call into `sheet-music/render.js::renderNotation`: that function
+ * targets the main sheet music, has a 600px minimum width, and needs measure
+ * math. This mini preview is one whole note on one stave and stays under
+ * ~260px wide. Clef auto-flips (bass < 60, treble ≥ 60) using median MIDI,
+ * matching the sheet music's `resolvedClef` behavior. Accidentals follow the
+ * progression's key.
  */
 function renderPreview(container, notes, key) {
   const VF = window.Vex?.Flow ?? window.VexFlow;

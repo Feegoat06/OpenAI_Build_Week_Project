@@ -1,0 +1,137 @@
+/* Bottom-of-right-pane coach panel: heading, four explanation cards, and the
+   empty/loading/error placeholder states. */
+
+.coach-panel {
+    margin-top: 36px;
+    border: 1px solid var(--hairline);
+    background: linear-gradient(135deg, rgba(23, 18, 14, .92), rgba(13, 10, 8, .92));
+    padding: 26px
+}
+
+.coach-heading {
+    display: grid;
+    grid-template-columns: 1fr minmax(220px, 360px);
+    gap: 25px;
+    align-items: end;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--hairline)
+}
+
+.coach-heading h2 {
+    font: 340 clamp(2.4rem, 4vw, 4.2rem)/1 var(--font-display);
+    margin: 7px 0 0;
+    font-size: 2.1rem
+}
+
+.coach-heading>p {
+    color: var(--tan-dim);
+    font-size: .73rem;
+    line-height: 1.6;
+    margin: 0
+}
+
+.coach-output {
+    padding-top: 22px
+}
+
+.coach-empty {
+    min-height: 95px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--tan-dim);
+    font: italic .92rem var(--font-display)
+}
+
+.coach-empty span {
+    color: var(--anchor);
+    font-size: 1.6rem
+}
+
+.coach-loading,
+.coach-error {
+    min-height: 95px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--tan);
+    font: .7rem var(--font-mono)
+}
+
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 1px solid var(--hairline);
+    border-top-color: var(--anchor);
+    border-radius: 50%;
+    animation: spin .8s linear infinite
+}
+
+.coach-error {
+    color: var(--danger);
+    flex-direction: column
+}
+
+.coach-error button {
+    border: 1px solid currentColor;
+    background: none;
+    color: inherit;
+    padding: 8px 14px;
+    font: inherit;
+    cursor: pointer
+}
+
+.coach-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--hairline)
+}
+
+.coach-card {
+    background: var(--panel);
+    padding: 20px;
+    min-height: 145px
+}
+
+.coach-card span {
+    display: block;
+    color: var(--anchor);
+    font: 500 .57rem var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    margin-bottom: 11px
+}
+
+.coach-card p {
+    margin: 0;
+    color: var(--tan);
+    font-size: .76rem;
+    line-height: 1.7
+}
+
+.coach-card.reflect p {
+    font: 500 1.04rem/1.5 var(--font-display);
+    color: var(--ivory)
+}
+
+@media(prefers-reduced-motion:reduce) {
+    .spinner {
+        animation: none
+    }
+}
+
+@media(max-width:1000px) {
+    .coach-heading {
+        align-items: start
+    }
+}
+
+@media(max-width:650px) {
+    .coach-grid,
+    .coach-heading {
+        grid-template-columns: 1fr
+    }
+}

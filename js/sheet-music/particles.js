@@ -239,15 +239,15 @@ function makeDotTexture(T) {
 }
 
 /* ── Main export ────────────────────────────────────────────────── */
-export function createScoreParticles(canvas) {
+export function createSheetMusicParticles(canvas) {
   const T = window.THREE;
   if (!T) {
     console.warn('[particles] Three.js not available — visual disabled.');
-    return { setScore() {}, beginPlayback() {}, setProgress() {}, settle() {} };
+    return { setSheetMusic() {}, beginPlayback() {}, setProgress() {}, settle() {} };
   }
 
   const stage   = canvas.closest('.notation-stage');
-  const stateEl = stage?.querySelector('#score-fx-state');
+  const stateEl = stage?.querySelector('#sheet-music-fx-state');
   const mq      = window.matchMedia('(prefers-reduced-motion: reduce)');
   let   rm      = mq.matches;
   const compact = window.matchMedia('(max-width: 700px), (pointer: coarse)').matches
@@ -568,8 +568,8 @@ export function createScoreParticles(canvas) {
         modeStartedAt = now;
         uScatterT.value = 0;
         stage?.classList.remove('is-particle-playing', 'is-particle-paused', 'is-particle-settling');
-        stage?.style.setProperty('--score-progress', '0%');
-        setLabel('Score breathing');
+        stage?.style.setProperty('--sheet-music-progress', '0%');
+        setLabel('Sheet music breathing');
       }
     }
 
@@ -580,7 +580,7 @@ export function createScoreParticles(canvas) {
   function setLabel(v)  { if (stateEl) stateEl.textContent = v; }
 
   /* ── Public API (identical surface to old Canvas 2D version) ───── */
-  function setScore(svg, nextLayout) {
+  function setSheetMusic(svg, nextLayout) {
     sampleGen++;
     const gen = sampleGen;
     layout = nextLayout;
@@ -605,7 +605,7 @@ export function createScoreParticles(canvas) {
     modeStartedAt = performance.now();
     stage?.classList.remove('is-particle-paused', 'is-particle-settling');
     stage?.classList.add('is-particle-playing');
-    stage?.style.setProperty('--score-progress', '0%');
+    stage?.style.setProperty('--sheet-music-progress', '0%');
     setLabel('Notation dispersing');
     getAnalyser(); // eagerly start audio tap on first user gesture
     ensureLoop();
@@ -614,7 +614,7 @@ export function createScoreParticles(canvas) {
   function setProgress(next, measureIndex = activeMeasure) {
     progress = clamp(next);
     activeMeasure = measureIndex;
-    stage?.style.setProperty('--score-progress', `${ (progress * 100).toFixed(2) }%`);
+    stage?.style.setProperty('--sheet-music-progress', `${ (progress * 100).toFixed(2) }%`);
     if (measureIndex != null) setLabel(`Assembling measure ${ measureIndex + 1 }`);
   }
 
@@ -635,8 +635,8 @@ export function createScoreParticles(canvas) {
     modeStartedAt = performance.now();
     uScatterT.value = mode === 'idle' ? 0 : uScatterT.value;
     stage?.classList.toggle('is-particle-settling', mode === 'settling');
-    stage?.style.setProperty('--score-progress', '0%');
-    setLabel(mode === 'idle' ? 'Score breathing' : 'Recalling the score');
+    stage?.style.setProperty('--sheet-music-progress', '0%');
+    setLabel(mode === 'idle' ? 'Sheet music breathing' : 'Recalling the sheet music');
     ensureLoop();
   }
 
@@ -648,7 +648,7 @@ export function createScoreParticles(canvas) {
       mode = 'idle';
       uScatterT.value = 0;
       stage?.classList.remove('is-particle-settling');
-      setLabel('Score breathing');
+      setLabel('Sheet music breathing');
     }
   });
 
@@ -667,5 +667,5 @@ export function createScoreParticles(canvas) {
   syncCamera();
   ensureLoop();
 
-  return { setScore, beginPlayback, setProgress, settle };
+  return { setSheetMusic, beginPlayback, setProgress, settle };
 }

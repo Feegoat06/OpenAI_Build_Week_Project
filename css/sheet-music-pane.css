@@ -1,0 +1,316 @@
+/* Right-side sheet music surface: page header, particle stage, VexFlow SVG
+   layer, progress rail, and zoom readout. Owns everything inside
+   <main class="sheet-music-pane"> except transport and coach. */
+
+.sheet-music-pane {
+    min-width: 0;
+    padding: 34px clamp(28px, 4vw, 68px) 64px;
+    background: radial-gradient(circle at 75% 20%, rgba(209, 161, 90, .035), transparent 35%), var(--ink)
+}
+
+.sheet-music-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--hairline)
+}
+
+.sheet-music-header h2 {
+    font: 340 clamp(2.4rem, 4vw, 4.2rem)/1 var(--font-display);
+    margin: 7px 0 0
+}
+
+.sheet-music-meta {
+    display: flex;
+    gap: 16px;
+    color: var(--tan-dim);
+    font: 400 .56rem var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .08em
+}
+
+.sheet-music-meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px
+}
+
+.sheet-music-meta i {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ivory)
+}
+
+.sheet-music-meta .technique-dot {
+    background: var(--anchor)
+}
+
+.sheet-music-zoom {
+    border: 1px solid var(--hairline);
+    padding: 5px 7px;
+    min-width: 122px;
+    text-align: center;
+    color: var(--tan);
+    font: 400 .52rem var(--font-mono);
+    letter-spacing: .04em;
+    text-transform: uppercase
+}
+
+/* Notation stage — the notation remains semantic VexFlow, while this layer
+   gives the compiled material a restrained sand-hologram presence. */
+.notation-stage {
+    position: relative;
+    --sheet-music-progress: 0%;
+    min-height: 390px;
+    margin: 34px 0 22px;
+    padding: 54px 0 42px;
+    display: flex;
+    align-items: center;
+    border: 1px solid rgba(196, 167, 126, .11);
+    background:
+        linear-gradient(90deg, rgba(209, 161, 90, .025) 1px, transparent 1px) 0 0 / 64px 100%,
+        radial-gradient(ellipse at 24% 46%, rgba(209, 161, 90, .075), transparent 34%),
+        linear-gradient(180deg, rgba(23, 18, 14, .24), rgba(5, 4, 3, .08));
+    box-shadow:
+        inset 0 1px rgba(230, 206, 170, .035),
+        inset 0 -1px rgba(0, 0, 0, .32);
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(196, 167, 126, .28) transparent
+}
+
+.notation-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(135deg, rgba(209, 161, 90, .1), transparent 16px) top left / 42px 42px no-repeat,
+        linear-gradient(315deg, rgba(209, 161, 90, .08), transparent 16px) bottom right / 42px 42px no-repeat;
+    opacity: .55
+}
+
+.staff-glow {
+    position: absolute;
+    width: 260px;
+    height: 260px;
+    left: 22%;
+    top: 50%;
+    transform: translateY(-50%);
+    background: radial-gradient(circle, rgba(209, 161, 90, .08), transparent 67%);
+    pointer-events: none;
+    transition: opacity .7s, transform .9s;
+    opacity: .8
+}
+
+.notation-stage.is-particle-playing .staff-glow {
+    opacity: 1;
+    transform: translate(18%, -50%) scale(1.16)
+}
+
+.notation-stage.is-particle-settling .staff-glow {
+    opacity: .92
+}
+
+.notation-stage.is-particle-paused .staff-glow {
+    opacity: 1;
+    transform: translate(8%, -50%) scale(1.08)
+}
+
+.sheet-music-layer {
+    position: relative;
+    width: 100%;
+    min-width: 580px;
+    z-index: 1;
+    isolation: auto
+}
+
+.sheet-music {
+    position: relative;
+    width: 100%;
+    z-index: 2
+}
+
+.sheet-music svg {
+    overflow: visible;
+    transition: opacity .45s
+}
+
+.sheet-music-particles {
+    /* Three.js sets canvas.width/height to layer-width × devicePixelRatio for
+       HiDPI rendering (see syncCamera in sheet-music/particles.js), which
+       gives the canvas a large intrinsic size. inset: 0 alone does not
+       override that on canvas elements — the width/height overrides do,
+       clamping the display size to the layer while keeping the internal
+       buffer sharp on retina. Without this, the canvas overflows the
+       notation-stage and horizontal zoom-out never fits everything. */
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    display: block;
+    pointer-events: none;
+    filter: none
+}
+
+.notation-stage.has-full-particles .sheet-music svg {
+    opacity: 0
+}
+
+.sheet-music .notice {
+    color: var(--tan-dim);
+    font: italic 1rem var(--font-display);
+    padding: 90px 20px;
+    text-align: center
+}
+
+.measure-group {
+    transition: filter .28s, opacity .28s
+}
+
+.measure-group.is-playing {
+    filter: drop-shadow(0 0 7px rgba(209, 161, 90, .72));
+    opacity: 1
+}
+
+.notation-stage.is-particle-playing .measure-group:not(.is-playing) {
+    opacity: .82
+}
+
+.sheet-music-stage-meta {
+    position: absolute;
+    z-index: 6;
+    top: 15px;
+    left: 18px;
+    right: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+    color: rgba(196, 167, 126, .46);
+    font: 500 .52rem var(--font-mono);
+    letter-spacing: .15em;
+    text-transform: uppercase
+}
+
+.sheet-music-stage-meta span:first-child::before {
+    content: "";
+    display: inline-block;
+    width: 18px;
+    height: 1px;
+    margin: 0 8px 3px 0;
+    background: rgba(209, 161, 90, .54)
+}
+
+#sheet-music-fx-state {
+    color: rgba(230, 206, 170, .48);
+    letter-spacing: .1em;
+    transition: color .25s
+}
+
+.notation-stage.is-particle-playing #sheet-music-fx-state {
+    color: rgba(209, 161, 90, .88)
+}
+
+.notation-stage.is-particle-paused #sheet-music-fx-state {
+    color: rgba(230, 206, 170, .76)
+}
+
+.sheet-music-progress-rail {
+    position: absolute;
+    z-index: 6;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    overflow: hidden;
+    background: rgba(196, 167, 126, .055);
+    pointer-events: none
+}
+
+.sheet-music-progress-rail span {
+    position: relative;
+    display: block;
+    width: var(--sheet-music-progress);
+    height: 100%;
+    background: linear-gradient(90deg, rgba(122, 102, 75, .22), var(--anchor));
+    box-shadow: 0 0 14px rgba(209, 161, 90, .46);
+    transition: width 80ms linear
+}
+
+.notation-stage.is-particle-playing .sheet-music-progress-rail span::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ivory);
+    box-shadow: 0 0 12px var(--anchor);
+    transform: translate(50%, -50%)
+}
+
+.notation-stage.is-particle-paused .sheet-music-progress-rail span::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--anchor);
+    box-shadow: 0 0 10px rgba(209, 161, 90, .72);
+    transform: translate(50%, -50%)
+}
+
+@media(prefers-reduced-motion:reduce) {
+    .staff-glow,
+    .measure-group,
+    .sheet-music svg {
+        transition: none
+    }
+
+    .notation-stage.has-full-particles .sheet-music svg {
+        opacity: .36
+    }
+}
+
+@media(max-width:1000px) {
+    .sheet-music-pane {
+        padding: 30px 24px 60px
+    }
+
+    .sheet-music-header {
+        align-items: start
+    }
+
+    .notation-stage {
+        min-height: 300px
+    }
+}
+
+@media(max-width:650px) {
+    .sheet-music-header {
+        display: block
+    }
+
+    .sheet-music-meta {
+        margin-top: 15px;
+        flex-wrap: wrap
+    }
+
+    .notation-stage {
+        min-height: 310px;
+        padding-top: 48px
+    }
+
+    .sheet-music-stage-meta {
+        left: 13px;
+        right: 13px
+    }
+}

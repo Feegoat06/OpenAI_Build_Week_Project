@@ -1,10 +1,10 @@
 /**
  * VexFlow rendering of the compiled progression.
  *
- * Reads the same `Segment[]` the audio scheduler consumes, so the score cannot
- * silently drift from what plays. Each measure is drawn in its own `<g>`
- * group with `data-measure=<n>` — main.js toggles a `.is-playing` class on
- * that group during playback to light the current bar.
+ * Reads the same `Segment[]` the audio scheduler consumes, so the sheet music
+ * cannot silently drift from what plays. Each measure is drawn in its own
+ * `<g>` group with `data-measure=<n>` — main.js toggles a `.is-playing` class
+ * on that group during playback to light the current bar.
  *
  * User notes are drawn in `--ivory`; technique-generated notes in `--anchor`
  * (the accent color). Ties are drawn between adjacent segments that share a
@@ -27,7 +27,7 @@ function styleModifiers(stave, color) {
 }
 
 /**
- * Draw the score into `container`, replacing anything already there.
+ * Draw the sheet music into `container`, replacing anything already there.
  *
  * @param {HTMLElement} container
  * @param {Segment[]}   segments   Output of compile().
@@ -42,7 +42,7 @@ export function renderNotation(container, segments, settings) {
     return { measureCount: 0, layout: [] };
   }
   if (!segments.length) {
-    container.innerHTML = '<div class="notice">Add a chord to begin the score.</div>';
+    container.innerHTML = '<div class="notice">Add a chord to begin the sheet music.</div>';
     return { measureCount: 0, layout: [] };
   }
 

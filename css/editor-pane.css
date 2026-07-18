@@ -1,0 +1,326 @@
+/* Left composition workspace: brand header, intro block, score-settings,
+   chord-list, and transition seams. Owns the entire <aside class="editor-pane"> subtree. */
+
+.editor-pane {
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--hairline);
+    display: flex;
+    flex-direction: column
+}
+
+.brand-block {
+    height: 78px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 28px;
+    border-bottom: 1px solid var(--hairline)
+}
+
+.brand-mark {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    width: 28px;
+    height: 25px
+}
+
+.brand-mark span {
+    width: 3px;
+    border-radius: 2px;
+    background: var(--anchor)
+}
+
+.brand-mark span:nth-child(1) {
+    height: 11px
+}
+
+.brand-mark span:nth-child(2) {
+    height: 23px
+}
+
+.brand-mark span:nth-child(3) {
+    height: 16px
+}
+
+.brand {
+    font: 600 1.05rem var(--font-display);
+    letter-spacing: .18em;
+    color: var(--ivory);
+    text-decoration: none
+}
+
+.brand-block p {
+    margin: 2px 0 0;
+    color: var(--tan-dim);
+    font: 400 .61rem var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .14em
+}
+
+.build-tag {
+    margin-left: auto;
+    color: var(--tan-dim);
+    font: 400 .6rem var(--font-mono);
+    letter-spacing: .14em
+}
+
+.editor-scroll {
+    overflow: auto;
+    padding-bottom: 70px
+}
+
+.intro-block {
+    padding: 42px 32px 38px;
+    border-bottom: 1px solid var(--hairline)
+}
+
+.intro-block h1 {
+    font: 340 clamp(2.6rem, 4vw, 4.7rem)/.92 var(--font-display);
+    letter-spacing: -.04em;
+    margin: 18px 0 22px
+}
+
+.intro-block h1 em {
+    font-weight: 500;
+    color: var(--anchor)
+}
+
+.intro-copy,
+.section-copy,
+.field-note {
+    color: var(--tan-dim);
+    font-size: .76rem;
+    line-height: 1.65;
+    margin: 0;
+    max-width: 430px
+}
+
+.editor-section {
+    padding: 27px 32px;
+    border-bottom: 1px solid var(--hairline)
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px
+}
+
+.section-title>span {
+    color: var(--tan-dim);
+    font: 400 .6rem var(--font-mono)
+}
+
+.section-title h2 {
+    font: 500 .75rem var(--font-body);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    margin: 0
+}
+
+.text-action {
+    margin-left: auto;
+    background: none;
+    border: 0;
+    color: var(--anchor);
+    font: 500 .67rem var(--font-mono);
+    cursor: pointer
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px 12px
+}
+
+.settings-grid label,
+.modal-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    color: var(--tan-dim);
+    font: 400 .58rem var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .1em
+}
+
+.tempo-control {
+    grid-column: 1/-1
+}
+
+.tempo-control div {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 8px
+}
+
+.tempo-control input {
+    accent-color: var(--anchor)
+}
+
+.tempo-control output {
+    font: 500 .9rem var(--font-mono);
+    color: var(--ivory)
+}
+
+.tempo-control small {
+    font: .55rem var(--font-mono)
+}
+
+.field-note {
+    margin-top: 13px;
+    font-style: italic
+}
+
+.table-head {
+    display: grid;
+    grid-template-columns: 1fr 52px 30px;
+    gap: 8px;
+    padding: 0 9px 8px;
+    color: var(--tan-dim);
+    font: 400 .55rem var(--font-mono);
+    letter-spacing: .12em;
+    text-transform: uppercase
+}
+
+.chord-list,
+.seam-list {
+    display: grid;
+    gap: 7px
+}
+
+.chord-row {
+    display: grid;
+    grid-template-columns: 1fr 52px 30px;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--hairline);
+    background: rgba(23, 18, 14, .65);
+    min-height: 59px;
+    padding: 8px
+}
+
+.chord-main {
+    min-width: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    color: var(--ivory);
+    cursor: pointer;
+    padding: 0
+}
+
+.chord-main strong {
+    display: block;
+    font: 500 .82rem var(--font-mono)
+}
+
+.chord-main small {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 5px;
+    color: var(--tan-dim);
+    font: 400 .57rem var(--font-mono)
+}
+
+.chord-bars {
+    text-align: center;
+    padding: 8px 3px
+}
+
+.empty-state {
+    border: 1px dashed var(--hairline);
+    padding: 18px;
+    color: var(--tan-dim);
+    font: 400 .68rem/1.5 var(--font-mono)
+}
+
+.seam-row {
+    border: 1px solid var(--hairline);
+    background: rgba(23, 18, 14, .65);
+    padding: 11px;
+    display: grid;
+    gap: 10px;
+    transition: border-color .2s
+}
+
+.seam-row.selected {
+    border-color: rgba(209, 161, 90, .7);
+    box-shadow: inset 2px 0 var(--anchor)
+}
+
+.seam-top {
+    display: flex;
+    align-items: start;
+    gap: 10px
+}
+
+.seam-index {
+    color: var(--anchor);
+    font: 400 .6rem var(--font-mono)
+}
+
+.seam-label {
+    flex: 1
+}
+
+.seam-label strong {
+    display: block;
+    font: 500 .7rem var(--font-mono)
+}
+
+.seam-label small {
+    display: block;
+    margin-top: 4px;
+    color: var(--tan-dim);
+    font: 400 .56rem var(--font-mono)
+}
+
+.seam-actions {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 7px
+}
+
+.seam-explain {
+    border: 1px solid rgba(209, 161, 90, .45);
+    background: transparent;
+    color: var(--anchor);
+    padding: 9px 10px;
+    font: 500 .59rem var(--font-mono);
+    cursor: pointer
+}
+
+@media(max-width:1000px) {
+    .editor-pane {
+        height: auto;
+        position: static
+    }
+
+    .editor-scroll {
+        overflow: visible
+    }
+
+    .app-shell .editor-pane {
+        border-right: 0;
+        border-bottom: 1px solid var(--hairline)
+    }
+}
+
+@media(max-width:650px) {
+    .settings-grid {
+        grid-template-columns: 1fr
+    }
+
+    .chord-row {
+        grid-template-columns: 1fr 48px 28px
+    }
+}

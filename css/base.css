@@ -1,0 +1,106 @@
+/* Design tokens, resets, and shared visual primitives used by every panel.
+   Panel files (editor-pane.css, sheet-music-pane.css, ...) depend on this
+   file's variables and shared classes. Panel-specific rules should belong
+   in the panel file. */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,340;0,9..144,600;1,9..144,500&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+    --ink: #050403;
+    --panel: #0d0a08;
+    --panel-2: #17120e;
+    --panel-3: #211811;
+    --hairline: rgba(196, 167, 126, .16);
+    --ivory: #e6ceaa;
+    --tan: #c4a77e;
+    --tan-dim: #7a664b;
+    --anchor: #d1a15a;
+    --danger: #c87b67;
+    --font-display: 'Fraunces', serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace
+}
+
+* {
+    box-sizing: border-box
+}
+
+html,
+body {
+    min-height: 100%
+}
+
+body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--ivory);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased
+}
+
+/* Shared "eyebrow" label used above section headings in every panel. */
+.kicker {
+    margin: 0;
+    color: var(--anchor);
+    font: 500 .62rem var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .18em
+}
+
+/* Icon-style buttons shared by editor rows (delete) and dialog headers (close). */
+.delete-button,
+.close-button {
+    border: 0;
+    background: none;
+    color: var(--tan-dim);
+    font-size: 1.3rem;
+    cursor: pointer
+}
+
+.delete-button:hover,
+.close-button:hover {
+    color: var(--danger)
+}
+
+/* Shared form select styling used by settings-grid, modal-controls, chord-bars, seam-select. */
+.settings-grid select,
+.modal-controls select,
+.chord-bars,
+.seam-select {
+    width: 100%;
+    border: 1px solid var(--hairline);
+    border-radius: 0;
+    background: var(--panel-2);
+    color: var(--ivory);
+    font: 400 .69rem var(--font-mono);
+    padding: 10px;
+    outline: none
+}
+
+.settings-grid select:focus,
+.modal-controls select:focus,
+.chord-bars:focus,
+.seam-select:focus {
+    border-color: var(--anchor)
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg)
+    }
+}
+
+@keyframes pulse {
+    50% {
+        opacity: .4
+    }
+}
+
+@media(prefers-reduced-motion:reduce) {
+
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important
+    }
+}

@@ -1,0 +1,125 @@
+/* Playback controls under the sheet music: play, stop, reset, status pulse. */
+
+.transport {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 12px 0 34px;
+    border-bottom: 1px solid var(--hairline)
+}
+
+.transport-buttons {
+    display: flex
+}
+
+.transport button {
+    height: 50px;
+    border: 1px solid var(--hairline);
+    font: 500 .65rem var(--font-mono);
+    cursor: pointer
+}
+
+.play-button {
+    background: var(--anchor);
+    color: var(--ink);
+    min-width: 188px;
+    padding: 0 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    text-align: left;
+    box-shadow: inset 0 1px rgba(255, 255, 255, .19), 0 10px 28px rgba(0, 0, 0, .2);
+    transition: transform .18s, box-shadow .18s, filter .18s
+}
+
+.play-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+    box-shadow: inset 0 1px rgba(255, 255, 255, .22), 0 14px 34px rgba(0, 0, 0, .28)
+}
+
+.play-button:disabled {
+    opacity: .45
+}
+
+.play-button .play-icon {
+    width: 20px;
+    margin: 0;
+    font-size: .72rem
+}
+
+.play-button .play-copy {
+    display: grid;
+    gap: 3px;
+    margin: 0
+}
+
+.play-button .play-copy strong,
+.play-button .play-copy small {
+    display: block;
+    font: inherit;
+    line-height: 1
+}
+
+.play-button .play-copy small {
+    font-size: .48rem;
+    font-weight: 500;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    opacity: .56
+}
+
+.stop-button {
+    background: var(--panel);
+    color: var(--tan);
+    padding: 0 18px;
+    border-left: 0 !important
+}
+
+.transport-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--tan-dim);
+    font: 400 .62rem var(--font-mono)
+}
+
+#playback-pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--tan-dim)
+}
+
+#playback-pulse.active {
+    background: var(--anchor);
+    box-shadow: 0 0 12px var(--anchor);
+    animation: pulse 1s infinite
+}
+
+.reset-button {
+    margin-left: auto;
+    background: none;
+    color: var(--tan-dim)
+}
+
+@media(prefers-reduced-motion:reduce) {
+    #playback-pulse.active {
+        animation: none
+    }
+}
+
+@media(max-width:650px) {
+    .transport {
+        flex-wrap: wrap
+    }
+
+    .reset-button {
+        margin-left: 0
+    }
+
+    .play-button {
+        min-width: 176px
+    }
+}

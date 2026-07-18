@@ -11,7 +11,7 @@ const THEORY_GUARDRAILS = `
 Use accurate, practical music-theory language. Explain only what is supported by
 the supplied chord, voicing, generated-note, rhythm, and transition data. Never
 invent notes, extensions, tonal centers, keys, functional labels, or voice-leading
-details. A score key-signature setting is spelling—not proof of a tonal center.
+details. The sheet-music key-signature setting is spelling—not proof of a tonal center.
 If a technique is absent, ambiguous, or unsupported, state that plainly.
 `.trim();
 

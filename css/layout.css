@@ -1,0 +1,13 @@
+/* Top-level page shell — the two-pane grid. */
+
+.app-shell {
+    display: grid;
+    grid-template-columns: minmax(410px, 38vw) 1fr;
+    min-height: 100vh
+}
+
+@media(max-width:1000px) {
+    .app-shell {
+        grid-template-columns: 1fr
+    }
+}
