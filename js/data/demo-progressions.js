@@ -17,7 +17,7 @@ export function makeDefaultProgression() {
 }
 
 /** ii-V-I with a tritone sub inserted between the V and I. */
-function make_ii_V_I_WithTritoneSubProgression() {
+function makeIiVIWithTritoneSubProgression() {
   const chords = [
     makeChord(notesFrom(50, 'Min7'), 1, { rootMidi: 50, quality: 'Min7' }),
     makeChord(notesFrom(55, 'Dom7'), 1, { rootMidi: 55, quality: 'Dom7' }),
@@ -26,6 +26,7 @@ function make_ii_V_I_WithTritoneSubProgression() {
   return makeProgression({
     settings: { tempo: 96, timeSig: { num: 4, den: 4 }, key: 0, clef: 'auto' },
     chords,
+    seams: [null, 'tritoneSub'],
   });
 }
 
@@ -43,5 +44,13 @@ function make4536251PopProgression() {
   return makeProgression({
     settings: { tempo: 96, timeSig: { num: 4, den: 4 }, key: 0, clef: 'auto' },
     chords,
+    seams: [
+      'passingDim', // F → F#dim → G
+      'susPassing', // G → Esus → Em
+      'secondaryDom', // Em → E7 → Am
+      'scaleRun', // Am → scale run → Dm
+      'susPassing', // Dm → Gsus → G
+      'ii_v_i', // G → Dm7 → G7 → C
+    ],
   });
 }
