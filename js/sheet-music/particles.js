@@ -11,9 +11,12 @@
      • Tone.Analyser tap for bass / energy uniforms (graceful fallback)
 ------------------------------------------------------------------ */
 
-const DESKTOP_PARTICLES = 16000;
-const COMPACT_PARTICLES = 8000;
-const MAX_DPR           = 2;
+// Dense enough to preserve noteheads, stems, beams, and accidentals after the
+// semantic SVG is replaced by particles. Compact devices retain a lower cap
+// so the two-pass point render does not overwhelm integrated/mobile GPUs.
+const DESKTOP_PARTICLES = 48000;
+const COMPACT_PARTICLES = 20000;
+const MAX_DPR           = 3;
 const GOLD              = [209, 161, 90];
 
 const clamp = (v, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
@@ -114,16 +117,16 @@ void main() {
   float phase    = uTime * 0.72 + pos.x * 0.014 + aMeasure * 0.82 + s1 * 0.12;
   float wave     = sin(uTime * 0.34 + pos.x * 0.0105 + pos.y * 0.022 + aMeasure * 0.56);
   float shimmer  = 0.5 + 0.5 * sin(phase * 0.74 + wave * 0.65);
-  float orbitAmp = 0.92 + s2 * 0.18 + uBass * 0.22;
+  float orbitAmp = 0.55 + s2 * 0.12 + uBass * 0.15;
   vec2 center    = vec2(uCanvasW * 0.5, uCanvasH * 0.5);
   float camScale = 1.0 + sin(uTime * 0.43) * 0.0017 * uMotionStrength;
   vec2 camDrift  = center + (pos.xy - center) * camScale - pos.xy;
   float nX       = (cos(phase) * orbitAmp
-                   + snoise(vec3(pos.x * 0.0036, pos.y * 0.0072, nT)) * 0.62
+                   + snoise(vec3(pos.x * 0.0036, pos.y * 0.0072, nT)) * 0.38
                    + camDrift.x) * uMotionStrength;
   float nY       = (sin(phase) * orbitAmp * 1.18
-                   + wave * (0.58 + uEnergy * 0.22)
-                   + snoise(vec3(pos.x * 0.0036 + 100.0, pos.y * 0.0072, nT * 0.71)) * 0.48
+                   + wave * (0.34 + uEnergy * 0.16)
+                   + snoise(vec3(pos.x * 0.0036 + 100.0, pos.y * 0.0072, nT * 0.71)) * 0.30
                    + camDrift.y) * uMotionStrength;
 
   // ── Star-field scatter displacement ──────────────────────────────
@@ -159,9 +162,9 @@ void main() {
   float isFrontier = step(abs(dist), 0.026);
   float isActive   = step(abs(dist), 0.062);
   float coverage   = smoothstep(0.12, 0.92, aCoverage);
-  float sz         = (1.34 + s3 * 0.86 + uBass * 0.32) * uPixelRatio;
-  sz *= (1.0 + isFrontier * 0.62 + isActive * 0.22 + hover * 0.32
-        + shimmer * 0.08 * uMotionStrength) * uBloomMult;
+  float sz         = (0.72 + s3 * 0.42 + uBass * 0.16) * uPixelRatio;
+  sz *= (1.0 + isFrontier * 0.38 + isActive * 0.14 + hover * 0.22
+        + shimmer * 0.04 * uMotionStrength) * uBloomMult;
   gl_PointSize = sz;
 
   // ── Alpha ────────────────────────────────────────────────────────
@@ -315,8 +318,8 @@ export function createSheetMusicParticles(canvas) {
     uTime, uBass, uEnergy, uProgress, uScatterT, uVisibleMeasure,
     uCanvasW, uCanvasH, uPixelRatio, uDotTex,
     uMotionStrength, uPointerActive, uPointerRadius, uPointer, uColorBoost,
-    uBloomMult:  { value: 2.65 },
-    uBloomAlpha: { value: 0.26 },
+    uBloomMult:  { value: 1.85 },
+    uBloomAlpha: { value: 0.14 },
   };
 
   const matBase = {
@@ -338,7 +341,10 @@ export function createSheetMusicParticles(canvas) {
     if (!par) return;
     const w = Math.max(1, par.clientWidth);
     const h = Math.max(1, par.clientHeight);
-    if (w === cW && h === cH && camera) return;
+    const nextDpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+    const dprChanged = Math.abs(renderer.getPixelRatio() - nextDpr) > 0.001;
+    if (dprChanged) renderer.setPixelRatio(nextDpr);
+    if (w === cW && h === cH && camera && !dprChanged) return;
     cW = w; cH = h;
     renderer.setSize(w, h, false); // false = don't override CSS width/height
     uCanvasW.value    = w;
@@ -523,7 +529,10 @@ export function createSheetMusicParticles(canvas) {
     try {
       await new Promise((ok, ko) => { img.onload = ok; img.onerror = ko; img.src = url; });
       if (gen !== sampleGen) return false;
-      const sampleScale = compact ? 1.35 : 2;
+      // Rasterize above CSS resolution before selecting points. This gives
+      // thin glyph details several candidate pixels instead of letting a
+      // single low-resolution sample erase a stem, beam, or accidental.
+      const sampleScale = compact ? 2 : 3;
       const rasterW = Math.max(1, Math.round(w * sampleScale));
       const rasterH = Math.max(1, Math.round(h * sampleScale));
       const rc  = Object.assign(document.createElement('canvas'), { width: rasterW, height: rasterH });
