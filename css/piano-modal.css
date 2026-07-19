@@ -40,7 +40,7 @@ dialog::backdrop {
 
 .dialog-header p:last-child {
     color: var(--tan-dim);
-    font-size: .72rem;
+    font-size: var(--fs-copy);
     margin: 0
 }
 
@@ -56,12 +56,20 @@ dialog::backdrop {
     padding: 20px 0
 }
 
+/* Root options are pitch-class notation, so they follow the active score
+   font rather than the surrounding interface typography. */
+#modal-root {
+    font-family: var(--font-chord);
+    font-weight: var(--font-chord-weight);
+    font-style: var(--font-chord-style);
+}
+
 .outline-button {
     height: 37px;
     border: 1px solid var(--hairline);
     background: transparent;
     color: var(--tan);
-    font: 500 .6rem var(--font-mono);
+    font: 500 .6rem var(--font-body);
     padding: 0 14px;
     cursor: pointer
 }
@@ -70,7 +78,7 @@ dialog::backdrop {
     display: flex;
     justify-content: space-between;
     color: var(--tan-dim);
-    font: 400 .55rem var(--font-mono);
+    font: 400 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .1em;
     margin-bottom: 8px
@@ -99,7 +107,8 @@ dialog::backdrop {
     background: #d8c6a9;
     color: #5d4c3a;
     padding: 155px 1px 5px;
-    font: 400 .49rem var(--font-mono);
+    font: var(--font-chord-weight) .49rem var(--font-chord);
+    font-style: var(--font-chord-style);
     cursor: pointer
 }
 
@@ -156,14 +165,15 @@ dialog::backdrop {
 .selection-readout span {
     display: block;
     color: var(--tan-dim);
-    font: 400 .52rem var(--font-mono);
+    font: 400 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .1em;
     margin-bottom: 5px
 }
 
 .selection-readout strong {
-    font: 500 .67rem var(--font-mono);
+    font: var(--font-chord-weight) .67rem var(--font-chord);
+    font-style: var(--font-chord-style);
     color: var(--ivory)
 }
 
@@ -176,7 +186,7 @@ dialog::backdrop {
 
 .dialog-footer p {
     color: var(--tan-dim);
-    font-size: .67rem;
+    font-size: var(--fs-copy);
     margin: 0
 }
 
@@ -215,7 +225,7 @@ dialog::backdrop {
     background: var(--panel-2);
     color: var(--tan);
     padding: 9px 15px;
-    font: 500 .62rem var(--font-mono);
+    font: 500 .62rem var(--font-body);
     letter-spacing: .06em;
     cursor: pointer;
     transition: border-color .15s, color .15s, background .15s
@@ -261,7 +271,7 @@ dialog::backdrop {
     align-items: center;
     gap: 8px;
     color: var(--tan-dim);
-    font: 400 .55rem var(--font-mono);
+    font: 400 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .1em
 }
@@ -283,7 +293,7 @@ dialog::backdrop {
     width: 22px;
     height: 22px;
     padding: 0;
-    font: .6rem/1 var(--font-mono);
+    font: .6rem/1 var(--font-body);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -332,7 +342,7 @@ dialog::backdrop {
 
 .preview-empty {
     color: var(--tan-dim);
-    font: italic 500 .8rem var(--font-body)
+    font: italic 500 var(--fs-copy) var(--font-body)
 }
 
 .octave-controls {
@@ -350,7 +360,7 @@ dialog::backdrop {
     background: transparent;
     color: var(--tan);
     padding: 9px;
-    font: 500 .62rem var(--font-mono);
+    font: 500 .62rem var(--font-body);
     letter-spacing: .06em;
     cursor: pointer;
     transition: border-color .15s, color .15s

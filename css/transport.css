@@ -104,7 +104,7 @@
     align-items: center;
     gap: 8px;
     color: var(--tan-dim);
-    font: 500 .7rem var(--font-body)
+    font: 500 var(--fs-copy) var(--font-body)
 }
 
 #playback-pulse {

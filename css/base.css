@@ -4,8 +4,8 @@
    in the panel file.
 
    Type system (two tiers, per the design revamp):
-     --font-body   Space Grotesk. Every UI label, section heading, body copy.
-     --font-mono   IBM Plex Mono. Kickers, meta tags, mono data.
+     --font-body   Space Grotesk. Every UI label, section heading, body copy,
+                   kicker, and metadata value.
      --font-chord  Playful/display, RESERVED for chord symbols and project
                    titles. Switches per project via [data-chord-font] on
                    <html> — jazztext (default) uses MuseJazz Text, classical
@@ -16,7 +16,7 @@
    when a project mounts, cleared on unmount. The two derived aliases give
    panels ready-made translucent tints without recomputing color-mix. */
 
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @font-face {
     font-family: 'MuseJazz Text';
@@ -84,12 +84,26 @@
 
     /* Fonts. --font-chord flips on the data-chord-font attribute below. */
     --font-body: 'Space Grotesk', sans-serif;
-    --font-mono: 'IBM Plex Mono', monospace;
     --font-chord-jazz: 'MuseJazz Text', 'Comic Sans MS', cursive;
     --font-chord-classical: 'Edwin', Georgia, 'Times New Roman', serif;
     --font-chord: var(--font-chord-jazz);
     --font-chord-style: normal;
     --font-chord-weight: 700;
+
+    /* Small-text scale for tan-dim helper text. Space Grotesk reads smaller
+       than the previous mono at the same rem, so these tokens centralize
+       every small grey label/eyebrow/helper size — bump here to shift the
+       whole system at once instead of editing each panel file.
+         --fs-label    tiny uppercase form labels & micro captions
+         --fs-eyebrow  standard kickers, section eyebrows, pill labels
+         --fs-copy     sentence-case helper body copy, ledes, footers
+       Circle-of-fifths wedge labels get their own tokens so they can be
+       tuned independently of the rest of the small-text scale. */
+    --fs-label: .74rem;
+    --fs-eyebrow: .78rem;
+    --fs-copy: .88rem;
+    --fs-wedge-major: .98rem;
+    --fs-wedge-minor: .82rem;
 
     /* Corner radii. Pills stay 999px; card/chord/cell are the three used
        across all panels for surface-tiered rounding. */
@@ -136,7 +150,7 @@ body {
 .kicker {
     margin: 0;
     color: var(--accent);
-    font: 500 .68rem var(--font-mono);
+    font: 500 var(--fs-eyebrow) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .2em
 }
@@ -283,7 +297,7 @@ body {
     border-radius: var(--radius-cell);
     background: var(--panel-3);
     color: var(--ivory);
-    font: 400 .75rem var(--font-mono);
+    font: 400 var(--fs-copy) var(--font-body);
     padding: 10px;
     outline: none
 }
@@ -349,7 +363,7 @@ body {
     border-radius: var(--radius-pill);
     background: transparent;
     color: var(--tan-dim);
-    font: 600 .72rem var(--font-body);
+    font: 600 .79rem var(--font-body);
     letter-spacing: .04em;
     cursor: pointer;
     transition: background .15s ease, color .15s ease

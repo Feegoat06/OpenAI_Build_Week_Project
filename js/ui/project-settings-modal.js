@@ -353,6 +353,7 @@ export function openProjectSettingsModal(dialog, { mode, initial, onSubmit }) {
   syncThemeUI();
 
   function syncThemeUI() {
+    dialog.dataset.chordFont = currentChordFont;
     accentPicker.querySelectorAll('.accent-swatch').forEach((el) => {
       const active = el.dataset.accent === currentAccent;
       el.classList.toggle('is-active', active);

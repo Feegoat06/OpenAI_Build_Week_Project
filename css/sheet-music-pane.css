@@ -61,7 +61,7 @@
     align-items: center;
     gap: 10px;
     color: var(--tan-dim);
-    font: 500 .55rem var(--font-mono);
+    font: 500 var(--fs-label) var(--font-body);
     letter-spacing: .1em;
     text-transform: uppercase
 }
@@ -83,7 +83,7 @@
     background: transparent;
     border: 1px solid var(--hairline);
     color: var(--ivory);
-    font: 500 .68rem var(--font-mono);
+    font: 500 .68rem var(--font-body);
     text-align: center
 }
 
@@ -94,7 +94,7 @@
 
 .sheet-music-controls .tempo-control small {
     color: var(--tan-dim);
-    font: 400 .52rem var(--font-mono);
+    font: 400 var(--fs-label) var(--font-body);
     letter-spacing: .1em;
     text-transform: uppercase
 }
@@ -104,7 +104,7 @@
     background: transparent;
     border: 1px solid var(--hairline);
     color: var(--ivory);
-    font: 500 .68rem var(--font-mono);
+    font: 500 .68rem var(--font-body);
     letter-spacing: .04em;
     cursor: pointer
 }
@@ -134,7 +134,7 @@
     border: 0;
     background: transparent;
     color: var(--tan);
-    font: 500 .82rem var(--font-mono);
+    font: 500 .82rem var(--font-body);
     line-height: 1;
     cursor: pointer;
     transition: color .18s, background .18s
@@ -159,7 +159,7 @@
     min-width: 46px;
     text-align: center;
     color: var(--tan);
-    font: 500 .56rem var(--font-mono);
+    font: 500 .56rem var(--font-body);
     letter-spacing: .06em;
     text-transform: uppercase
 }
@@ -269,7 +269,7 @@
 
 .sheet-music .notice {
     color: var(--tan-dim);
-    font: italic 500 .95rem var(--font-body);
+    font: italic 500 var(--fs-copy) var(--font-body);
     padding: 90px 20px;
     text-align: center
 }

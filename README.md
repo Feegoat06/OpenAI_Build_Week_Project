@@ -1,6 +1,6 @@
 # LEGATO
 
-LEGATO is an interactive AI music tutor for pianists. Build exact chord voicings, connect them with a harmonic technique, see and hear the compiled result, then ask why the transition works. The interface uses an editorial “sand hologram” composition-studio direction with Fraunces, Inter, and IBM Plex Mono.
+LEGATO is an interactive AI music tutor for pianists. Build exact chord voicings, connect them with a harmonic technique, see and hear the compiled result, then ask why the transition works. The interface uses an editorial “sand hologram” composition-studio direction with Fraunces, Inter, and Space Grotesk.
 
 ## Run locally
 

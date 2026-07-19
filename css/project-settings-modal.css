@@ -13,6 +13,20 @@
     overflow: hidden;
 }
 
+/* The settings dialog previews its pending chord-font choice before it is
+   saved to the project, so note and key labels always match that choice. */
+#project-settings-dialog[data-chord-font="jazztext"] {
+    --font-chord: var(--font-chord-jazz);
+    --font-chord-style: normal;
+    --font-chord-weight: 700;
+}
+
+#project-settings-dialog[data-chord-font="classical"] {
+    --font-chord: var(--font-chord-classical);
+    --font-chord-style: normal;
+    --font-chord-weight: 700;
+}
+
 .project-settings-shell {
     width: 100%;
     display: flex;
@@ -33,7 +47,7 @@
     flex-direction: column;
     gap: 7px;
     color: var(--tan-dim);
-    font: 400 .58rem var(--font-mono);
+    font: 400 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .1em;
 }
@@ -69,7 +83,7 @@
     flex-direction: column;
     gap: 7px;
     color: var(--tan-dim);
-    font: 400 .58rem var(--font-mono);
+    font: 400 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .1em;
 }
@@ -79,7 +93,7 @@
     border: 1px solid var(--hairline);
     background: rgba(23, 18, 14, .65);
     color: var(--ivory);
-    font: 400 .8rem var(--font-mono);
+    font: 400 var(--fs-copy) var(--font-body);
 }
 
 .tempo-input-row {
@@ -95,7 +109,7 @@
     border: 1px solid var(--hairline);
     background: rgba(23, 18, 14, .65);
     color: var(--ivory);
-    font: 500 .85rem var(--font-mono);
+    font: 500 .85rem var(--font-body);
     outline: none;
     transition: border-color .12s ease;
 }
@@ -109,7 +123,7 @@
 }
 
 .tempo-input-row small {
-    font: .55rem var(--font-mono);
+    font: var(--fs-label) var(--font-body);
     color: var(--tan-dim);
 }
 
@@ -125,7 +139,7 @@
 .key-signature-fieldset legend {
     padding: 0 8px;
     color: var(--tan-dim);
-    font: 400 .58rem var(--font-mono);
+    font: 400 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .1em;
 }
@@ -175,14 +189,16 @@
 }
 
 .key-wedge-major {
-    font: 500 .82rem var(--font-mono);
+    font: var(--font-chord-weight) var(--fs-wedge-major) var(--font-chord);
+    font-style: var(--font-chord-style);
     fill: var(--ivory);
     pointer-events: none;
     user-select: none;
 }
 
 .key-wedge-minor {
-    font: 400 .62rem var(--font-mono);
+    font: var(--font-chord-weight) var(--fs-wedge-minor) var(--font-chord);
+    font-style: var(--font-chord-style);
     fill: var(--tan-dim);
     pointer-events: none;
     user-select: none;
@@ -211,13 +227,14 @@
 
 .key-dial-readout strong {
     color: var(--ivory);
-    font: 600 1rem var(--font-body);
+    font: var(--font-chord-weight) 1rem var(--font-chord);
+    font-style: var(--font-chord-style);
     letter-spacing: -.005em;
 }
 
 .key-dial-readout small {
     color: var(--tan-dim);
-    font: 400 .68rem var(--font-mono);
+    font: 400 var(--fs-copy) var(--font-body);
 }
 
 .key-enharmonics {
@@ -229,7 +246,7 @@
 
 .key-enharmonics-label {
     color: var(--tan-dim);
-    font: 400 .58rem var(--font-mono);
+    font: 400 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .1em;
 }
@@ -239,7 +256,8 @@
     border: 1px solid var(--hairline);
     background: rgba(23, 18, 14, .65);
     color: var(--tan);
-    font: 500 .6rem var(--font-mono);
+    font: var(--font-chord-weight) .6rem var(--font-chord);
+    font-style: var(--font-chord-style);
     letter-spacing: .04em;
     cursor: pointer;
     transition: color .12s ease, border-color .12s ease, background .12s ease;
@@ -259,7 +277,7 @@
 .project-settings-shell .field-note {
     margin: 0;
     color: var(--tan-dim);
-    font-size: .7rem;
+    font-size: var(--fs-copy);
     line-height: 1.55;
     font-style: italic;
 }
@@ -278,7 +296,7 @@
 .theme-fieldset legend {
     padding: 0 8px;
     color: var(--tan-dim);
-    font: 400 .58rem var(--font-mono);
+    font: 400 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .1em;
 }
@@ -291,7 +309,7 @@
 .theme-field-label {
     margin: 0;
     color: var(--tan-dim);
-    font: 500 .62rem var(--font-mono);
+    font: 500 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .12em;
 }
@@ -335,7 +353,7 @@
 
 .accent-swatch-mood {
     color: var(--tan-dim);
-    font: 500 .58rem var(--font-mono);
+    font: 500 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .08em;
 }
