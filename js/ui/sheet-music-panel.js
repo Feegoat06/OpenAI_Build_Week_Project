@@ -1,6 +1,6 @@
 /**
- * Right-side sheet music surface: header (with zoom readout), VexFlow SVG,
- * particle overlay, and the transport + coach mount points.
+ * Readable music-stand score with paging, zoom, semantic selection, and a
+ * performance reveal mode.
  *
  * Owns rendering the compiled progression as sheet music, the particle
  * playback effect, and CSS-zoom on wheel/resize. The transport and coach
@@ -9,40 +9,16 @@
  * main.js can wire them separately.
  */
 import { renderNotation } from '../sheet-music/render.js';
-import { createSheetMusicParticles } from '../sheet-music/particles.js';
-
 const TEMPLATE = `
-<header class="sheet-music-header">
-  <div>
-    <p class="kicker">Compiled sheet music</p>
-    <h2>Your Progression!</h2>
-  </div>
-  <div class="sheet-music-meta">
-    <span><i class="user-dot"></i>User voicing</span>
-    <span><i class="technique-dot"></i>Technique</span>
-    <span id="sheet-music-summary">0 measures</span>
-    <output id="sheet-music-zoom-value" class="sheet-music-zoom" aria-live="polite">100% · scroll sheet music to zoom</output>
-  </div>
-</header>
-
-<section class="notation-stage" aria-label="Progression notation">
-  <div class="sheet-music-stage-meta" aria-hidden="true">
-    <span>Particle sheet music</span>
-    <span id="sheet-music-fx-state">Sheet music breathing</span>
-  </div>
-  <div class="staff-glow" aria-hidden="true"></div>
+<section class="notation-stage" aria-label="Progression notation" tabindex="0">
+  <header class="sheet-music-stage-meta"><span>Live score</span><output id="sheet-music-summary">0 measures</output><div><button data-action="zoom-out" aria-label="Zoom out">−</button><output id="sheet-music-zoom-value">100%</output><button data-action="zoom-in" aria-label="Zoom in">+</button><button data-action="maximize">Expand</button></div></header>
   <div id="sheet-music-layer" class="sheet-music-layer">
     <div id="sheet-music" class="sheet-music"></div>
-    <canvas id="sheet-music-particles" class="sheet-music-particles" aria-hidden="true"></canvas>
   </div>
-  <div class="sheet-music-progress-rail" aria-hidden="true"><span></span></div>
 </section>
-
-<div id="transport-mount"></div>
-<div id="coach-mount"></div>
 `;
 
-export function mountSheetMusicPanel({ container }) {
+export function mountSheetMusicPanel({ container, callbacks = {} }) {
   container.classList.add('sheet-music-pane');
   container.innerHTML = TEMPLATE;
 
@@ -51,8 +27,6 @@ export function mountSheetMusicPanel({ container }) {
   const zoomValueEl = container.querySelector('#sheet-music-zoom-value');
   const layerEl = container.querySelector('#sheet-music-layer');
   const notationStageEl = container.querySelector('.notation-stage');
-  const particlesCanvas = container.querySelector('#sheet-music-particles');
-  const particles = createSheetMusicParticles(particlesCanvas);
 
   let zoom = 1;
   let resizeFrame = 0;
@@ -69,7 +43,7 @@ export function mountSheetMusicPanel({ container }) {
   function drawSheetMusic() {
     if (!currentSettings) return { measureCount: 0, layout: [] };
     const result = renderNotation(sheetMusicEl, currentSegments, currentSettings);
-    particles.setSheetMusic(sheetMusicEl.querySelector('svg'), result.layout);
+    wireSemanticNotes();
     applyActiveMeasureClasses();
     return result;
   }
@@ -87,19 +61,26 @@ export function mountSheetMusicPanel({ container }) {
     scheduleRerender();
   }
 
-  notationStageEl.addEventListener('wheel', (event) => {
-    if (event.deltaY === 0) return;
-    event.preventDefault();
-    setZoom(zoom + (event.deltaY < 0 ? 0.1 : -0.1));
-  }, { passive: false });
+  container.querySelector('[data-action="zoom-out"]').onclick = () => setZoom(zoom - .1);
+  container.querySelector('[data-action="zoom-in"]').onclick = () => setZoom(zoom + .1);
+  container.querySelector('[data-action="maximize"]').onclick = () => notationStageEl.classList.toggle('is-maximized');
   window.addEventListener('resize', scheduleRerender);
 
   setZoom(zoom);
 
+  function wireSemanticNotes() {
+    sheetMusicEl.querySelectorAll('[data-source-id]').forEach((note) => {
+      const activate = () => {
+        const seam = note.dataset.seamIndex;
+        if (seam !== '') callbacks.onSelectSeam?.(Number(seam));
+        else callbacks.onSelectChord?.(note.dataset.sourceId);
+      };
+      note.onclick = activate;
+      note.onkeydown = (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activate(); } };
+    });
+  }
+
   return {
-    transportMount: container.querySelector('#transport-mount'),
-    coachMount: container.querySelector('#coach-mount'),
-    particles,
     render(segments, settings) {
       currentSegments = segments;
       currentSettings = settings;
@@ -109,6 +90,22 @@ export function mountSheetMusicPanel({ container }) {
     setActiveMeasure(index) {
       activeMeasure = index;
       applyActiveMeasureClasses();
+      if (index != null) container.querySelector(`[data-measure="${ index }"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    },
+    selectChord(chordId) {
+      sheetMusicEl.querySelectorAll('[data-source-id]').forEach((note) => note.classList.toggle('is-selected', note.dataset.sourceId === chordId));
+    },
+    selectSeam(index) {
+      sheetMusicEl.querySelectorAll('[data-seam-index]').forEach((note) => note.classList.toggle('is-selected', note.dataset.seamIndex === String(index)));
+    },
+    setPerformanceMode(active) {
+      notationStageEl.classList.toggle('is-performance-score', active);
+      if (active) sheetMusicEl.querySelectorAll('[data-source-id]').forEach((note) => note.classList.add('is-awaiting'));
+      else sheetMusicEl.querySelectorAll('.is-awaiting').forEach((note) => note.classList.remove('is-awaiting'));
+    },
+    revealSource(sourceId, seamIndex = null) {
+      const selector = seamIndex == null ? `[data-source-id="${ CSS.escape(sourceId) }"]` : `[data-seam-index="${ seamIndex }"]`;
+      sheetMusicEl.querySelectorAll(selector).forEach((note) => note.classList.remove('is-awaiting'));
     },
   };
 }

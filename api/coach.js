@@ -10,8 +10,8 @@
  *   - `buildSeamCoachPrompt` — the actual prompt text.
  *   - `isCoachResponse` — the shape guard for the four educational fields.
  */
-import { buildSeamCoachPrompt } from '../js/coach/prompts.js';
-import { isCoachResponse } from '../js/coach/coach.js';
+import { buildSeamCoachPrompt, buildProgressionReviewPrompt } from '../js/coach/prompts.js';
+import { isCoachResponse, isReviewResponse } from '../js/coach/coach.js';
 
 const COACH_SCHEMA = {
   type: 'object',
@@ -22,6 +22,28 @@ const COACH_SCHEMA = {
     whyItWorks: { type: 'string' },
     tryThis: { type: 'string' },
     reflect: { type: 'string' },
+  },
+};
+
+const CHANGE_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  required: ['kind', 'targetIndex', 'numberValue', 'stringValue', 'notesValue'],
+  properties: {
+    kind: { type: 'string', enum: ['tempo', 'key', 'clef', 'meter', 'chordBeats', 'chordVoicing', 'seamTechnique'] },
+    targetIndex: { type: 'integer' },
+    numberValue: { type: ['number', 'null'] },
+    stringValue: { type: ['string', 'null'] },
+    notesValue: { type: 'array', items: { type: 'integer' } },
+  },
+};
+
+const REVIEW_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['overview', 'suggestions'],
+  properties: {
+    overview: { type: 'string' },
+    suggestions: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['id', 'title', 'rationale', 'changes'], properties: {
+      id: { type: 'string' }, title: { type: 'string' }, rationale: { type: 'string' }, changes: { type: 'array', items: CHANGE_SCHEMA },
+    } } },
   },
 };
 
@@ -40,7 +62,9 @@ export function parseCoachResponse(text) {
 
 export async function generateCoachResponse(payload) {
   if (!process.env.OPENAI_API_KEY) throw Object.assign(new Error('AI coaching is not configured. Add OPENAI_API_KEY on the server to enable explanations.'), { status: 503 });
-  const prompt = buildSeamCoachPrompt(payload);
+  const isReview = payload?.intent === 'progression-review';
+  const prompt = isReview ? buildProgressionReviewPrompt(payload) : buildSeamCoachPrompt(payload);
+  const schema = isReview ? REVIEW_SCHEMA : COACH_SCHEMA;
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ process.env.OPENAI_API_KEY }` },
@@ -48,13 +72,19 @@ export async function generateCoachResponse(payload) {
       model: process.env.OPENAI_MODEL || 'gpt-5.6',
       input: prompt,
       max_output_tokens: 700,
-      text: { format: { type: 'json_schema', name: 'legato_coach', strict: true, schema: COACH_SCHEMA } },
+      text: { format: { type: 'json_schema', name: isReview ? 'legato_review' : 'legato_coach', strict: true, schema } },
     }),
   });
   const data = await response.json();
   if (!response.ok) throw Object.assign(new Error(data.error?.message || 'OpenAI request failed.'), { status: response.status });
   const text = outputText(data);
   if (!text) throw Object.assign(new Error('OpenAI returned no explanation.'), { status: 502 });
+  if (isReview) {
+    let parsed;
+    try { parsed = JSON.parse(text); } catch { throw Object.assign(new Error('LEGATO returned malformed review JSON.'), { status: 502 }); }
+    if (!isReviewResponse(parsed)) throw Object.assign(new Error('LEGATO review did not match the required schema.'), { status: 502 });
+    return parsed;
+  }
   return parseCoachResponse(text);
 }
 

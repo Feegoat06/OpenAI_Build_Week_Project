@@ -29,7 +29,7 @@ function formatTechnique(technique) {
  * Build the LLM prompt for a single seam explanation. Chord objects come from
  * main.js (`{ name, notes }`); `evidence` from buildCoachEvidence().
  */
-export function buildSeamCoachPrompt({ fromChord, toChord, technique, generatedNotes = [], evidence = {} }) {
+export function buildSeamCoachPrompt({ fromChord, toChord, technique, generatedNotes = [], evidence = {}, question = '' }) {
   return `
 You are LEGATO, a warm, concise AI music tutor for an intermediate-to-advanced pianist.
 
@@ -41,6 +41,7 @@ Observed transition data:
 - selected technique: ${ formatTechnique(technique) }
 - generated connecting notes (MIDI, in play order): [${ generatedNotes.join(', ') }]
 - deterministic evidence: ${ JSON.stringify(evidence) }
+- learner question: ${ question || 'What should I listen for in this transition?' }
 
 Return valid JSON with exactly four string fields:
 - whatYouHear: 1-2 sentences describing the likely perceived effect; distinguish interpretation from fact.
@@ -51,6 +52,33 @@ Return valid JSON with exactly four string fields:
 For a direct transition, call it direct and do not invent a technique. Mention common tones,
 semitone resolution, bass motion, soprano motion, or parsimonious voice leading only when the
 deterministic evidence supports it. Keep the complete response under 180 words. Do not use generic praise.
+`.trim();
+}
+
+export function buildProgressionReviewPrompt({ projectName = 'Untitled project', progression, segments = [], chordLabels = [], evidenceBySeam = [] }) {
+  return `
+You are LEGATO, a calm pianist-teacher reviewing a complete progression immediately before the learner performs it.
+
+${ THEORY_GUARDRAILS }
+
+Project: ${ projectName }
+Progression settings and exact user material: ${ JSON.stringify(progression) }
+Chord display labels: ${ JSON.stringify(chordLabels) }
+Compiled events (the exact notation/audio truth): ${ JSON.stringify(segments) }
+Deterministic evidence by transition: ${ JSON.stringify(evidenceBySeam) }
+
+Return a concise overview and zero to four optional musical experiments. Each suggestion must use only the allowed machine changes below. Prefer leaving a coherent choice alone over inventing a correction. Suggestions are not universal improvements; describe how the musical effect would change.
+
+Allowed change kinds and value fields:
+- tempo: targetIndex -1, numberValue 40..180
+- key: targetIndex -1, numberValue integer -7..7; key signature controls material/spelling and is not proof of tonic
+- clef: targetIndex -1, stringValue auto|treble|bass
+- meter: targetIndex -1, stringValue one of 3/4,4/4,5/4,7/4,6/8
+- chordBeats: targetIndex is chord index, numberValue one of .5,1,1.5,2,3,4,6,8
+- chordVoicing: targetIndex is chord index, notesValue is a non-empty unique exact MIDI array 21..108
+- seamTechnique: targetIndex is seam index, stringValue is one of passingDim,secondaryDom,tritoneSub,ii_v_i,susPassing,leadingTone,scaleRun,arpBridge, or empty string for direct
+
+Every change object must include all fields. Put null in unused number/string fields and [] in unused notesValue. Do not target a missing chord/seam. Do not create conflicting changes to the same target. Keep rationale factual and under 45 words.
 `.trim();
 }
 

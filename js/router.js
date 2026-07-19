@@ -122,14 +122,15 @@ function readLastRoute() {
 }
 
 const EDITOR_HASH = /^#\/edit\/(.+)$/;
+const PROJECT_HASH = /^#\/project\/(.+)$/;
 
 export function parseEditorHash(hash) {
-  const match = EDITOR_HASH.exec(hash);
-  return match ? { id: match[1] } : null;
+  const match = PROJECT_HASH.exec(hash) ?? EDITOR_HASH.exec(hash);
+  return match ? { id: decodeURIComponent(match[1]), legacy: EDITOR_HASH.test(hash) } : null;
 }
 
 export function editorHash(id) {
-  return `#/edit/${ id }`;
+  return `#/project/${ encodeURIComponent(id) }`;
 }
 
 export const LANDING_HASH = '#/';

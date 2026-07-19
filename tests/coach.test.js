@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { buildSeamCoachPrompt } from '../js/coach/prompts.js';
 import { parseCoachResponse } from '../api/coach.js';
+import { isReviewResponse } from '../js/coach/coach.js';
 
 const base = { fromChord: { name: 'C Major', notes: [60, 64, 67] }, toChord: { name: 'F Major', notes: [65, 69, 72] }, generatedNotes: [60, 64, 67, 70], evidence: { commonPitchClasses: [0, 5] } };
 
@@ -25,4 +26,8 @@ test('client JavaScript contains no API key credential reference', async () => {
   const clientFiles = ['js/main.js', 'js/coach/coach.js', 'js/coach/prompts.js', 'js/ui/piano-modal.js'];
   const contents = await Promise.all(clientFiles.map((path) => readFile(new URL(`../${ path }`, import.meta.url), 'utf8')));
   assert.equal(contents.some((content) => content.includes('OPENAI_API_KEY')), false);
+});
+
+test('review schema guard rejects partial executable suggestions', () => {
+  assert.equal(isReviewResponse({ overview: 'x', suggestions: [{ id: 'x' }] }), false);
 });

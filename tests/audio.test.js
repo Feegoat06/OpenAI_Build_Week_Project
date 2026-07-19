@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { coalesceTiedSegments, stopPlayback } from '../js/audio/playback.js';
+import { coalesceTiedSegments, createPlaybackSession, stopPlayback } from '../js/audio/playback.js';
 
 test('tied notation fragments schedule as one sustained playback event', () => {
   const events = coalesceTiedSegments([
@@ -43,5 +43,61 @@ test('stopPlayback cancels future audio events on the Tone transport', () => {
     else globalThis.window = previousWindow;
     if (previousCancelAnimationFrame === undefined) delete globalThis.cancelAnimationFrame;
     else globalThis.cancelAnimationFrame = previousCancelAnimationFrame;
+  }
+});
+
+test('studio playback session keeps pause, resume, and stop on one transport state', async () => {
+  const previous = {
+    window: globalThis.window,
+    Tone: globalThis.Tone,
+    requestAnimationFrame: globalThis.requestAnimationFrame,
+    cancelAnimationFrame: globalThis.cancelAnimationFrame,
+  };
+  const scheduled = [];
+  const transport = {
+    seconds: 0,
+    stop() {}, cancel() { scheduled.length = 0; },
+    schedule(callback, at) { scheduled.push({ callback, at }); },
+    start() {}, pause() {},
+  };
+  class Sampler {
+    constructor() { this.release = 1; }
+    toDestination() { return this; }
+    triggerAttackRelease() {}
+    releaseAll() {}
+  }
+  const Tone = {
+    Transport: transport,
+    Sampler,
+    start: async () => {},
+    loaded: async () => {},
+    now: () => 0,
+    Draw: { schedule: (callback) => callback() },
+  };
+  globalThis.window = { Tone };
+  globalThis.Tone = Tone;
+  globalThis.requestAnimationFrame = () => 1;
+  globalThis.cancelAnimationFrame = () => {};
+
+  try {
+    const states = [];
+    const session = await createPlaybackSession({
+      segments: [{ notes: [60], durationBeats: 4, sourceId: 'c1', measureIndex: 0, startBeat: 0 }],
+      settings: { tempo: 96, timeSig: { num: 4, den: 4 } },
+      onState: (state) => states.push(state),
+    });
+    session.play();
+    session.pause();
+    assert.equal(session.getState(), 'paused');
+    session.resume();
+    assert.equal(session.getState(), 'playing');
+    session.stop();
+    assert.equal(session.getState(), 'stopped');
+    assert.deepEqual(states, ['playing', 'paused', 'playing', 'stopped']);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
   }
 });

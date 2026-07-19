@@ -6,7 +6,8 @@
  * so navigating away and back gives a clean slate.
  *
  *   #/           → landing view
- *   #/edit/:id   → editor view
+ *   #/project/:id → project workspace (Edit / Review / Play)
+ *   #/edit/:id    → legacy-compatible project workspace route
  *
  * The piano modal is mounted once here (shared across sessions) because it
  * is stateful DOM the editor opens and closes many times per session; a per-

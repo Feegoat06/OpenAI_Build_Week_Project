@@ -1,4 +1,4 @@
-/* Top-level page shell — the two-pane grid. */
+/* Legacy editor shell. The new project workspace is owned by studio-workspace.css. */
 
 .app-shell {
     display: grid;

@@ -14,9 +14,11 @@
  * browser's audio-context policy) — hence the `await ready()` on every entry.
  */
 let sampler;
+let fallbackSynth;
 let stopTimers = [];
 let progressFrame = 0;
 let playbackGeneration = 0;
+let activeSession = null;
 
 /**
  * Stop and clear the shared progression timeline.
@@ -34,15 +36,18 @@ function cancelTransport() {
 
 /** Release the currently sounding voices with a click-safe, near-zero tail. */
 function releaseSamplerImmediately() {
-  if (!sampler || typeof window === 'undefined' || !window.Tone) return;
-  const previousRelease = sampler.release;
-  try {
-    // The normal one-second piano release is musical during playback but is
-    // perceived as audio lag when Stop is expected to freeze the sheet music now.
-    sampler.release = 0.015;
-    sampler.releaseAll(window.Tone.now());
-  } finally {
-    sampler.release = previousRelease;
+  if (typeof window === 'undefined' || !window.Tone) return;
+  for (const instrument of [sampler, fallbackSynth]) {
+    if (!instrument?.releaseAll) continue;
+    const previousRelease = instrument.release;
+    try {
+      // The normal one-second piano release is musical during playback but is
+      // perceived as audio lag when Stop is expected to freeze the sheet music now.
+      if ('release' in instrument) instrument.release = 0.015;
+      instrument.releaseAll(window.Tone.now());
+    } finally {
+      if ('release' in instrument) instrument.release = previousRelease;
+    }
   }
 }
 
@@ -55,6 +60,31 @@ function getSampler() {
     }).toDestination();
   }
   return sampler;
+}
+
+function getFallbackSynth() {
+  if (!fallbackSynth) {
+    fallbackSynth = new Tone.PolySynth(Tone.Synth, {
+      volume: -13,
+      oscillator: { type: 'triangle8' },
+      envelope: { attack: .012, decay: .32, sustain: .18, release: .85 },
+    }).toDestination();
+  }
+  return fallbackSynth;
+}
+
+async function getPlayableInstrument(timeoutMs = 2500) {
+  const preferred = getSampler();
+  let timeout;
+  try {
+    const loaded = await Promise.race([
+      Tone.loaded().then(() => true, () => false),
+      new Promise((resolve) => { timeout = setTimeout(() => resolve(false), timeoutMs); }),
+    ]);
+    return loaded ? preferred : getFallbackSynth();
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 const frequency = (midi) => 440 * 2 ** ((midi - 69) / 12);
@@ -102,8 +132,7 @@ export async function playSegments(segments, settings, onMeasure, onStop, onProg
   stopPlayback();
   const generation = playbackGeneration;
   await Tone.start();
-  const instrument = getSampler();
-  await Tone.loaded();
+  const instrument = await getPlayableInstrument();
   if (generation !== playbackGeneration) return;
   const secondsPerBeat = 60 / settings.tempo;
   const measureLength = settings.timeSig.num * 4 / settings.timeSig.den;
@@ -158,8 +187,130 @@ export async function playSegments(segments, settings, onMeasure, onStop, onProg
   }, (leadIn + end + 0.1) * 1000));
 }
 
+/**
+ * Stateful progression playback for the studio performance view. Audio and
+ * all visual callbacks are scheduled/read from Tone.Transport's clock.
+ */
+export async function createPlaybackSession({ segments, settings, onState, onEventStart, onEventEnd, onMeasure, onProgress, onComplete }) {
+  stopPlayback();
+  const generation = playbackGeneration;
+  await Tone.start();
+  const instrument = await getPlayableInstrument();
+  if (generation !== playbackGeneration) return null;
+
+  const beatSeconds = 60 / settings.tempo;
+  const measureBeats = settings.timeSig.num * 4 / settings.timeSig.den;
+  const events = coalesceTiedSegments(segments, measureBeats);
+  const transport = Tone.Transport;
+  const totalBeats = events.reduce((end, event) => Math.max(end, event.startBeat + event.durationBeats), 0);
+  const totalSeconds = totalBeats * beatSeconds;
+  let state = 'ready';
+  let frame = 0;
+  let lastMeasure = null;
+
+  function visual(callback, time, value) {
+    if (!callback) return;
+    if (Tone.Draw?.schedule) Tone.Draw.schedule(() => { if (generation === playbackGeneration) callback(value); }, time);
+    else callback(value);
+  }
+
+  function schedule() {
+    transport.stop();
+    transport.cancel(0);
+    transport.seconds = 0;
+    for (const event of events) {
+      const at = event.startBeat * beatSeconds;
+      const duration = event.durationBeats * beatSeconds;
+      transport.schedule((time) => {
+        if (generation !== playbackGeneration) return;
+        instrument.triggerAttackRelease(event.notes.map(frequency), duration * .96, time);
+        visual(onEventStart, time, event);
+      }, at);
+      transport.schedule((time) => visual(onEventEnd, time, event), at + duration);
+    }
+    transport.schedule((time) => visual(() => finish(), time), totalSeconds + .02);
+  }
+
+  function tick() {
+    if (generation !== playbackGeneration || state !== 'playing') return;
+    const seconds = Math.max(0, transport.seconds || 0);
+    const normalized = totalSeconds ? Math.min(1, seconds / totalSeconds) : 1;
+    const beat = seconds / beatSeconds;
+    const measure = normalized < 1 ? Math.min(Math.max(0, Math.ceil(totalBeats / measureBeats) - 1), Math.floor(beat / measureBeats)) : null;
+    if (measure !== lastMeasure) { lastMeasure = measure; onMeasure?.(measure); }
+    onProgress?.(normalized, measure, beat);
+    frame = requestAnimationFrame(tick);
+  }
+
+  function setState(next) { state = next; onState?.(next); }
+  function startFrames() { cancelAnimationFrame(frame); frame = requestAnimationFrame(tick); }
+  function finish() {
+    if (generation !== playbackGeneration || state === 'complete') return;
+    cancelAnimationFrame(frame); frame = 0;
+    transport.stop();
+    onProgress?.(1, null, totalBeats);
+    onMeasure?.(null);
+    setState('complete');
+    onComplete?.();
+  }
+
+  const controller = {
+    play() {
+      if (state === 'playing') return;
+      if (state === 'complete') controller.replay();
+      else {
+        setState('playing');
+        transport.start(Tone.now() + .06);
+        startFrames();
+      }
+    },
+    pause() {
+      if (state !== 'playing') return;
+      transport.pause();
+      cancelAnimationFrame(frame); frame = 0;
+      releaseSamplerImmediately();
+      setState('paused');
+    },
+    resume() {
+      if (state !== 'paused') return;
+      const beat = (transport.seconds || 0) / beatSeconds;
+      const sounding = events.find((event) => event.startBeat <= beat && event.startBeat + event.durationBeats > beat);
+      if (sounding) {
+        const remaining = (sounding.startBeat + sounding.durationBeats - beat) * beatSeconds;
+        instrument.triggerAttackRelease(sounding.notes.map(frequency), Math.max(.03, remaining * .96), Tone.now());
+        onEventStart?.(sounding);
+      }
+      setState('playing');
+      transport.start();
+      startFrames();
+    },
+    replay() {
+      cancelAnimationFrame(frame); frame = 0;
+      releaseSamplerImmediately();
+      schedule();
+      lastMeasure = null;
+      onProgress?.(0, 0, 0);
+      setState('playing');
+      transport.start(Tone.now() + .06);
+      startFrames();
+    },
+    stop() {
+      if (generation !== playbackGeneration) return;
+      stopPlayback();
+      setState('stopped');
+    },
+    getState() { return state; },
+    getPositionBeats() { return (transport.seconds || 0) / beatSeconds; },
+  };
+
+  schedule();
+  activeSession = controller;
+  return controller;
+}
+
 export function stopPlayback() {
   playbackGeneration += 1;
+  activeSession = null;
   stopTimers.forEach(clearTimeout);
   stopTimers = [];
   cancelAnimationFrame(progressFrame);
@@ -174,9 +325,7 @@ export function stopPlayback() {
 /** Ensure the audio context is started + samples are loaded before triggering. */
 async function ready() {
   await Tone.start();
-  const instrument = getSampler();
-  await Tone.loaded();
-  return instrument;
+  return getPlayableInstrument();
 }
 
 /** Fire a single note immediately. Used by the piano modal per-key preview. */

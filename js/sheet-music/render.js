@@ -99,6 +99,21 @@ export function renderNotation(container, segments, settings) {
       voice.addTickables(staveNotes);
       new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - (column === 0 ? 120 : 32));
       voice.draw(context, stave);
+      const measureGroup = container.querySelector(`#measure-${ measure }`);
+      const primaryGroups = measureGroup?.querySelectorAll('.vf-stavenote') ?? [];
+      const noteGroups = primaryGroups.length ? primaryGroups : (measureGroup?.querySelectorAll('.vf-note') ?? []);
+      [...noteGroups].slice(0, measureSegments.length).forEach((group, segmentIndex) => {
+        const segment = measureSegments[segmentIndex];
+        group.dataset.sourceId = segment.sourceId;
+        group.dataset.seamIndex = segment.seamIndex == null ? '' : String(segment.seamIndex);
+        group.dataset.measure = String(segment.measureIndex);
+        group.dataset.midi = segment.notes.join(',');
+        group.setAttribute('role', 'button');
+        group.setAttribute('tabindex', '0');
+        group.setAttribute('aria-label', segment.isTechnique
+          ? `Generated transition notes ${ segment.notes.join(', ') }`
+          : `Chord notes ${ segment.notes.join(', ') }`);
+      });
     }
     context.closeGroup();
   }

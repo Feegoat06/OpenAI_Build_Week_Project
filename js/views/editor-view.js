@@ -1,206 +1,173 @@
 /**
- * Editor view — the two-pane composition workspace.
- *
- * This is the previous `main.js` logic wrapped in a mount/unmount contract
- * so the router can swap between landing and editor. All state (progression,
- * segments, selectedSeam, key-source maps) lives locally in `mount()` — no
- * module-level singletons, so navigating away and back gives a clean slate.
- *
- *   UI mutates progression → compile() → segments
- *                                       → sheetMusic.render()
- *                                       → playSegments()
- *                                       → sheetMusic.setActiveMeasure()
- *
- * On top of every mutation, `scheduleAutosave()` debounces a write to the
- * ProjectStore so localStorage stays in sync without a manual save button.
+ * Project workspace: one mounted Edit → Review → Play experience.
+ * Progression remains the only stored musical truth; review, selection,
+ * conversation, playback, and undo are session-only view state.
  */
 import { compile, makeChord, reconcileSeams, beatsToBars, isTechniqueUsable } from '../state.js';
 import { chordDisplayName } from '../engine/chords.js';
 import { applyKeySignature } from '../engine/key-signature.js';
 import { TECHNIQUES } from '../engine/techniques.js';
 import { evaluateAllTechniques } from '../engine/technique-eligibility.js';
-import { playSegments, stopPlayback } from '../audio/playback.js';
+import { createPlaybackSession, stopPlayback } from '../audio/playback.js';
 import { openPianoModal, populateChordControls } from '../ui/piano-modal.js';
 import { mountEditorPanel } from '../ui/editor-panel.js';
 import { mountSheetMusicPanel } from '../ui/sheet-music-panel.js';
-import { mountTransport } from '../ui/transport.js';
-import { mountCoachPanel } from '../ui/coach-panel.js';
+import { mountStudioScene } from '../ui/studio-scene.js';
+import { mountScoreSettingsDialog } from '../ui/score-settings-dialog.js';
+import { mountLegatoAgent } from '../ui/legato-agent.js';
+import { mountReviewPanel } from '../ui/review-panel.js';
+import { mountPlayControls } from '../ui/play-controls.js';
+import { feedbackForChange } from '../coach/feedback-rules.js';
+import { normalizeReview, reviewPreviews, selectedChanges } from '../coach/review.js';
 import { buildCoachEvidence } from '../coach/evidence.js';
-import { requestCoach } from '../coach/coach.js';
-import { navigate, LANDING_HASH } from '../router.js';
+import { requestCoach, requestProgressionReview } from '../coach/coach.js';
+import { navigate, editorHash, LANDING_HASH } from '../router.js';
 
-const SHELL_TEMPLATE = `
-  <div class="app-shell">
-    <aside id="editor-pane-mount"></aside>
-    <main id="sheet-music-pane-mount"></main>
-  </div>
-`;
+const AUTOSAVE_DEBOUNCE_MS = 450;
+const TRANSITION_MS = 1900;
 
-const AUTOSAVE_DEBOUNCE_MS = 500;
-
-/**
- * @param {{ store: ReturnType<import('../persistence.js').createProjectStore>, pianoDialog: any, exampleProgressionFactory: () => import('../state.js').Progression }} deps
- */
 export function createEditorView({ store, pianoDialog, exampleProgressionFactory }) {
   return {
     async mount(root, params) {
+      if (params.legacy) {
+        navigate(editorHash(params.id));
+        return { unmount() {} };
+      }
       const project = await store.getProject(params.id);
       if (!project || project.deletedAt) {
         navigate(LANDING_HASH);
         return { unmount() {} };
       }
-      // Ensure the shared piano modal is populated for this session.
       populateChordControls(pianoDialog);
 
-      // ── Local state (was module-level in the old main.js) ────────────
       let progression = project.progression;
       let currentName = project.name;
       let segments = [];
       let editingId = null;
-      let selectedSeam = 0;
+      let selectedSeam = Math.min(0, Math.max(0, progression.seams.length - 1));
+      let selectedChordId = progression.chords[0]?.id ?? null;
+      let playbackSession = null;
+      let reviewController = null;
+      let currentReview = null;
+      let undoSnapshot = null;
+      let transitionTimer = 0;
+      let reviewNudgeTimer = 0;
+      let localFeedbackTimer = 0;
+      let destroyed = false;
       const keySourceNotes = new Map();
       const keySourceHints = new Map();
 
-      // ── DOM shell + panels ──────────────────────────────────────────
-      root.insertAdjacentHTML('beforeend', SHELL_TEMPLATE);
-      const shell = root.querySelector('.app-shell');
-
-      const sheetMusic = mountSheetMusicPanel({
-        container: shell.querySelector('#sheet-music-pane-mount'),
-      });
-
-      const editor = mountEditorPanel({
-        container: shell.querySelector('#editor-pane-mount'),
+      const scene = mountStudioScene({
+        container: root,
         callbacks: {
-          onTempoInput(tempo) {
-            progression.settings.tempo = tempo;
-            scheduleAutosave();
-          },
-          onTimeSigChange(timeSig) {
-            progression.settings.timeSig = timeSig;
-            resetIneligibleSeams();
-            coach.setEmpty();
-            rerender();
-          },
-          onKeyChange(key) {
-            progression.settings.key = key;
-            applyKeyToMaterial();
-            coach.setEmpty();
-            rerender();
-          },
-          onClefChange(clef) {
-            progression.settings.clef = clef;
-            rerender();
-          },
-          onAddChord() {
-            editingId = null;
-            openPianoModal(pianoDialog, null, saveChord, progression.settings.timeSig, progression.settings.key);
-          },
-          onEditChord(chord) {
-            editingId = chord.id;
-            openPianoModal(pianoDialog, chord, saveChord, progression.settings.timeSig, progression.settings.key);
-          },
-          onDeleteChord(chord) {
-            replaceChords(progression.chords.filter((item) => item.id !== chord.id));
-          },
-          onSetChordBeats(chord, beats) {
-            chord.bars = beatsToBars(beats, progression.settings.timeSig);
-            resetIneligibleSeams();
-            rerender();
-          },
-          onSelectSeam(index) {
-            selectedSeam = index;
-            editor.render({ progression, selectedSeam, projectName: currentName });
-            coach.setContext(coachContextText());
-          },
-          onSetSeamTechnique(index, techniqueId) {
-            progression.seams[index] = techniqueId;
-            selectedSeam = index;
-            coach.setEmpty();
-            rerender();
-          },
-          onExplainSeam(index) { explainSeam(index); },
-          onGoHome() {
-            navigate(LANDING_HASH);
-          },
-          onRenameProject(name) {
-            const clean = name.trim() || 'Untitled project';
-            currentName = clean;
-            scheduleAutosave();
-            editor.render({ progression, selectedSeam, projectName: currentName });
-          },
+          onGoHome: leaveWorkspace,
+          onProceed: handleProceed,
+          onOpenSettings: () => settingsDialog.open(),
+          onAskLegato: () => agent.openComposer({ context: currentQuestionContext() }),
+          onRenameProject: renameProject,
         },
       });
 
-      const transport = mountTransport({
-        container: sheetMusic.transportMount,
+      const score = mountSheetMusicPanel({
+        container: scene.scoreMount,
         callbacks: {
-          onPlay: handlePlay,
-          onStop: handleStop,
-          onReset: handleLoadExample,
+          onSelectChord(chordId) { selectChord(chordId); },
+          onSelectSeam(index) { selectSeam(index); },
         },
       });
 
-      const coach = mountCoachPanel({
-        container: sheetMusic.coachMount,
+      const inspector = mountEditorPanel({
+        container: scene.inspectorMount,
         callbacks: {
-          onRetry(retryIndex) { explainSeam(retryIndex); },
+          onAddChord() { editingId = null; openPianoModal(pianoDialog, null, saveChord, progression.settings.timeSig, progression.settings.key); },
+          onEditChord(chord) { editingId = chord.id; openPianoModal(pianoDialog, chord, saveChord, progression.settings.timeSig, progression.settings.key); },
+          onDeleteChord(chord) { replaceChords(progression.chords.filter((item) => item.id !== chord.id), { type: 'deleteChord' }); },
+          onSetChordBeats(chord, beats) { chord.bars = beatsToBars(beats, progression.settings.timeSig); resetIneligibleSeams(); changed({ type: 'beats' }); },
+          onSelectChord(chordId) { selectChord(chordId); },
+          onSelectSeam(index) { selectSeam(index); },
+          onSetSeamTechnique(index, techniqueId) { progression.seams[index] = techniqueId; selectedSeam = index; selectedChordId = null; changed({ type: 'technique', techniqueId }); },
+          onAskSeam(index) {
+            selectSeam(index);
+            agent.openComposer({ prefill: 'What should I listen for in this transition?', context: { kind: 'seam', seamIndex: index } });
+          },
+          onRenameProject: renameProject,
+          onLoadExample: loadExample,
         },
       });
 
-      // ── Autosave ────────────────────────────────────────────────────
-      let saveTimer = null;
-      let saveInFlight = false;
+      const settingsDialog = mountScoreSettingsDialog({
+        container: root,
+        callbacks: {
+          onTempoInput(tempo) { progression.settings.tempo = tempo; changed({ type: 'tempo' }); },
+          onTimeSigChange(timeSig) { progression.settings.timeSig = timeSig; resetIneligibleSeams(); changed({ type: 'timeSig' }); },
+          onKeyChange(key) { progression.settings.key = key; applyKeyToMaterial(); changed({ type: 'key' }); },
+          onClefChange(clef) { progression.settings.clef = clef; changed({ type: 'clef' }); },
+        },
+      });
+
+      const agent = mountLegatoAgent({
+        container: scene.agentMount,
+        callbacks: { onQuestion: askLegato },
+      });
+
+      const reviewPanel = mountReviewPanel({
+        container: scene.reviewMount,
+        callbacks: {
+          onReturn: returnToEdit,
+          onRetry: handleProceed,
+          onIgnore: () => beginPlay({ useSuggestions: false }),
+          onApply: (indexes) => applyReviewAndPlay(indexes),
+        },
+      });
+
+      const playControls = mountPlayControls({
+        container: scene.playControlsMount,
+        callbacks: {
+          onPauseToggle: togglePause,
+          onReplay: replay,
+          onStop: stopToEdit,
+          onUndo: undoLegatoChanges,
+        },
+      });
+
+      // ── Autosave ──────────────────────────────────────────────────
+      let saveTimer = 0;
+      let savePromise = null;
+      let saveAgain = false;
 
       function scheduleAutosave() {
-        if (saveTimer) clearTimeout(saveTimer);
-        saveTimer = setTimeout(flushSave, AUTOSAVE_DEBOUNCE_MS);
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => flushSave(), AUTOSAVE_DEBOUNCE_MS);
       }
 
       async function flushSave() {
-        if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
-        if (saveInFlight) return;
-        saveInFlight = true;
-        try {
-          await store.saveProject({
-            ...project,
-            name: currentName,
-            progression,
-          });
-        } catch (error) {
-          transport.setStatus(error.message);
-        } finally {
-          saveInFlight = false;
-        }
+        clearTimeout(saveTimer); saveTimer = 0;
+        if (savePromise) { saveAgain = true; await savePromise; return flushSave(); }
+        savePromise = store.saveProject({ ...project, name: currentName, progression })
+          .catch((error) => scene.setStatus(error.message))
+          .finally(() => { savePromise = null; });
+        await savePromise;
+        if (saveAgain) { saveAgain = false; return flushSave(); }
       }
 
       const beforeUnload = () => { flushSave(); };
       window.addEventListener('beforeunload', beforeUnload);
 
-      // ── State mutation helpers (behavior identical to old main.js) ──
-      function replaceChords(nextChords) {
-        progression.seams = reconcileSeams(progression.chords, progression.seams, nextChords);
-        progression.chords = nextChords;
-        rememberKeySources(nextChords);
-        resetIneligibleSeams();
-        selectedSeam = Math.min(selectedSeam, Math.max(0, progression.seams.length - 1));
-        rerender();
-      }
-
-      function rememberKeySources(chords) {
+      // ── Mutations ─────────────────────────────────────────────────
+      function rememberKeySources(chords, { overwrite = false } = {}) {
         chords.forEach((chord) => {
-          if (!keySourceNotes.has(chord.id)) keySourceNotes.set(chord.id, [...chord.notes]);
-          if (!keySourceHints.has(chord.id)) keySourceHints.set(chord.id, chord.hint ? { ...chord.hint } : null);
+          if (overwrite || !keySourceNotes.has(chord.id)) keySourceNotes.set(chord.id, [...chord.notes]);
+          if (overwrite || !keySourceHints.has(chord.id)) keySourceHints.set(chord.id, chord.hint ? { ...chord.hint } : null);
         });
       }
 
       function applyKeyToMaterial() {
         rememberKeySources(progression.chords);
         progression.chords.forEach((chord) => {
-          const sourceNotes = keySourceNotes.get(chord.id);
+          const sourceNotes = keySourceNotes.get(chord.id) ?? chord.notes;
           chord.notes = applyKeySignature(sourceNotes, progression.settings.key);
-          const changed = chord.notes.some((note, index) => note !== sourceNotes[index]);
-          if (changed) delete chord.hint;
+          const changedNotes = chord.notes.some((note, index) => note !== sourceNotes[index]);
+          if (changedNotes) delete chord.hint;
           else if (keySourceHints.get(chord.id)) chord.hint = { ...keySourceHints.get(chord.id) };
         });
         resetIneligibleSeams();
@@ -211,14 +178,23 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
           if (!techniqueId) return null;
           const technique = evaluateAllTechniques(progression.chords[index], progression.chords[index + 1])
             .find((candidate) => candidate.id === techniqueId);
-          return technique?.valid && isTechniqueUsable(technique, progression.chords[index], progression.settings.timeSig)
-            ? techniqueId
-            : null;
+          return technique?.valid && isTechniqueUsable(technique, progression.chords[index], progression.settings.timeSig) ? techniqueId : null;
         });
       }
 
+      function replaceChords(nextChords, change) {
+        progression.seams = reconcileSeams(progression.chords, progression.seams, nextChords);
+        progression.chords = nextChords;
+        rememberKeySources(nextChords);
+        resetIneligibleSeams();
+        selectedChordId = nextChords.some((chord) => chord.id === selectedChordId) ? selectedChordId : nextChords[0]?.id ?? null;
+        selectedSeam = Math.min(selectedSeam, Math.max(0, progression.seams.length - 1));
+        changed(change);
+      }
+
       function saveChord(input) {
-        if (editingId) {
+        const wasEditing = Boolean(editingId);
+        if (wasEditing) {
           const chord = progression.chords.find((item) => item.id === editingId);
           const { hint: _oldHint, ...withoutHint } = chord;
           Object.assign(chord, withoutHint, input);
@@ -226,6 +202,7 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
           keySourceHints.set(chord.id, input.hint ? { ...input.hint } : null);
           chord.notes = applyKeySignature(input.notes, progression.settings.key);
           if (!input.hint) delete chord.hint;
+          selectedChordId = chord.id;
         } else {
           const chord = makeChord(input.notes, input.bars, input.hint);
           keySourceNotes.set(chord.id, [...input.notes]);
@@ -233,122 +210,269 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
           chord.notes = applyKeySignature(input.notes, progression.settings.key);
           progression.chords.push(chord);
           if (progression.chords.length > 1) progression.seams.push(null);
+          selectedChordId = chord.id;
         }
         resetIneligibleSeams();
         editingId = null;
-        coach.setEmpty();
-        rerender();
+        changed({ type: wasEditing ? 'editChord' : 'addChord' });
       }
 
-      // ── Coach flow ──────────────────────────────────────────────────
-      function coachContextText() {
-        if (!progression.seams.length) return 'Add two chords to create a seam that LEGATO can explain.';
-        const from = chordDisplayName(progression.chords[selectedSeam], progression.settings.key);
-        const to = chordDisplayName(progression.chords[selectedSeam + 1], progression.settings.key);
-        const technique = progression.seams[selectedSeam] ? TECHNIQUES[progression.seams[selectedSeam]].name : 'Direct transition';
-        return `${ from } → ${ to } · ${ technique }`;
+      function renameProject(name) {
+        currentName = name.trim() || 'Untitled project';
+        renderPanels();
+        scheduleAutosave();
       }
 
-      async function explainSeam(index) {
-        selectedSeam = index;
-        editor.render({ progression, selectedSeam, projectName: currentName });
-        coach.setContext(coachContextText());
+      function loadExample() {
+        progression = exampleProgressionFactory();
+        keySourceNotes.clear(); keySourceHints.clear();
+        rememberKeySources(progression.chords, { overwrite: true });
+        selectedChordId = progression.chords[0]?.id ?? null; selectedSeam = 0;
+        undoSnapshot = null;
+        changed({ type: 'default' });
+        scene.setStatus('Example restored');
+      }
+
+      function changed(change) {
+        undoSnapshot = null;
+        stopPlayback();
+        segments = compile(progression);
+        clearTimeout(localFeedbackTimer);
+        const activityMode = agent.getActivityMode();
+        if (activityMode === 'proactive' || (activityMode === 'important' && isImportantChange(change))) {
+          localFeedbackTimer = setTimeout(() => agent.setReaction(feedbackForChange(change, progression)), 280);
+        }
+        scene.setStatus('Saved locally');
+        renderPanels();
+        scheduleAutosave();
+      }
+
+      // ── Selection and questions ───────────────────────────────────
+      function selectChord(chordId) {
+        selectedChordId = chordId; selectedSeam = -1;
+        inspector.render({ progression, selectedSeam, selectedChordId, projectName: currentName });
+        inspector.scrollToChord(chordId); score.selectChord(chordId);
+        agent.setContext({ kind: 'chord', chordId });
+      }
+
+      function selectSeam(index) {
+        selectedSeam = index; selectedChordId = null;
+        inspector.render({ progression, selectedSeam, selectedChordId, projectName: currentName });
+        inspector.scrollToSeam(index); score.selectSeam(index);
+        agent.setContext({ kind: 'seam', seamIndex: index });
+      }
+
+      function currentQuestionContext() {
+        return selectedSeam >= 0 ? { kind: 'seam', seamIndex: selectedSeam } : { kind: 'chord', chordId: selectedChordId };
+      }
+
+      async function askLegato(question, context) {
+        const seamIndex = context?.kind === 'seam' ? context.seamIndex : Math.max(0, Math.min(selectedSeam, progression.seams.length - 1));
+        if (!progression.seams.length) {
+          agent.appendMessage({ role: 'assistant', text: 'Add at least two chords and I can ground an answer in the transition between them.' });
+          return;
+        }
+        agent.setThinking(true);
+        try {
+          const result = await requestCoach(buildSeamPayload(seamIndex, question));
+          agent.appendMessage({ role: 'assistant', structured: result });
+          agent.setReaction(result.whatYouHear);
+        } catch (error) { agent.setError(error.message); }
+      }
+
+      function buildSeamPayload(index, question = '') {
         const techniqueId = progression.seams[index];
-        const payload = {
+        return {
+          question,
           fromChord: { name: chordDisplayName(progression.chords[index], progression.settings.key), notes: progression.chords[index].notes },
           toChord: { name: chordDisplayName(progression.chords[index + 1], progression.settings.key), notes: progression.chords[index + 1].notes },
           technique: techniqueId ? { id: techniqueId, ...TECHNIQUES[techniqueId] } : 'none',
           generatedNotes: segments.filter((segment) => segment.seamIndex === index).flatMap((segment) => segment.notes),
           evidence: buildCoachEvidence(progression, segments, index),
         };
-        coach.setLoading();
-        try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 20000);
-          const result = await requestCoach(payload, { signal: controller.signal });
-          clearTimeout(timer);
-          coach.setResult(result);
-        } catch (error) {
-          const message = error.name === 'AbortError' ? 'The coach took too long to respond.' : error.message;
-          coach.setError(message, index);
-        }
       }
 
-      // ── Transport ───────────────────────────────────────────────────
-      async function handlePlay() {
-        transport.setPlayEnabled(false);
-        transport.setPulseActive(true);
-        transport.setStatus('Loading piano…');
-        sheetMusic.particles.beginPlayback();
+      // ── Proceed review ────────────────────────────────────────────
+      async function handleProceed() {
+        if (!segments.length) { agent.setReaction('Give me at least one voiced chord before we perform.'); return; }
+        stopPlayback();
+        clearTimeout(reviewNudgeTimer);
+        reviewController?.abort();
+        reviewController = new AbortController();
+        scene.setMode('review');
+        reviewPanel.showLoading();
+        agent.setThinking(true);
         try {
-          await playSegments(
+          const raw = await requestProgressionReview({
+            projectName: currentName,
+            progression: clone(progression),
             segments,
-            progression.settings,
-            (measure) => {
-              sheetMusic.setActiveMeasure(measure);
-              if (measure !== null) transport.setStatus(`Playing measure ${ measure + 1 }`);
-            },
-            () => {
-              sheetMusic.particles.settle();
-              transport.setPlayEnabled(true);
-              transport.setPulseActive(false);
-              transport.setStatus('Playback complete');
-            },
-            (progress, measure) => sheetMusic.particles.setProgress(progress, measure),
-          );
+            chordLabels: progression.chords.map((chord) => chordDisplayName(chord, progression.settings.key)),
+            evidenceBySeam: progression.seams.map((_, index) => buildCoachEvidence(progression, segments, index)),
+          }, { signal: reviewController.signal });
+          currentReview = normalizeReview(raw, progression);
+          reviewPanel.showResult(currentReview, reviewPreviews(currentReview, progression));
+          agent.setReaction(currentReview.overview);
+          reviewNudgeTimer = setTimeout(() => agent.showNudge('Feel free to discuss any ideas with me.'), 10000);
         } catch (error) {
-          sheetMusic.particles.settle({ immediate: true });
-          transport.setPlayEnabled(true);
-          transport.setPulseActive(false);
-          transport.setStatus(error.message);
+          if (error.name === 'AbortError') return;
+          reviewPanel.showError(error.message);
+          agent.setError(error.message);
         }
       }
 
-      function handleStop() {
-        stopPlayback();
-        sheetMusic.particles.settle({ preserveProgress: true });
-        sheetMusic.setActiveMeasure(null);
-        transport.setPlayEnabled(true);
-        transport.setPulseActive(false);
-        transport.setStatus('Stopped');
+      function returnToEdit() {
+        reviewController?.abort(); reviewController = null;
+        clearTimeout(reviewNudgeTimer);
+        currentReview = null; reviewPanel.hide();
+        scene.setMode('edit'); scene.setStatus('Ready to compose');
       }
 
-      function handleLoadExample() {
-        progression = exampleProgressionFactory();
-        keySourceNotes.clear();
-        keySourceHints.clear();
-        applyKeyToMaterial();
-        selectedSeam = 0;
-        coach.setEmpty();
-        transport.setStatus('Example loaded');
-        rerender();
-      }
-
-      // ── Render pipeline ─────────────────────────────────────────────
-      function rerender() {
-        stopPlayback();
-        sheetMusic.particles.settle({ immediate: true });
-        sheetMusic.setActiveMeasure(null);
-        transport.setPlayEnabled(true);
-        transport.setPulseActive(false);
+      async function applyReviewAndPlay(indexes) {
+        if (!currentReview) return beginPlay({ useSuggestions: false });
+        const changes = selectedChanges(currentReview, indexes);
+        undoSnapshot = changes.length ? clone(progression) : null;
+        applyReviewChanges(changes);
+        resetIneligibleSeams();
         segments = compile(progression);
-        editor.render({ progression, selectedSeam, projectName: currentName });
-        sheetMusic.render(segments, progression.settings);
-        coach.setContext(coachContextText());
-        scheduleAutosave();
+        renderPanels();
+        await flushSave();
+        playControls.setUndoAvailable(changes.length > 0);
+        beginPlay({ useSuggestions: changes.length > 0 });
       }
 
-      applyKeyToMaterial();
-      rerender();
+      function applyReviewChanges(changes) {
+        for (const change of changes) {
+          if (change.kind === 'tempo') progression.settings.tempo = change.value;
+          if (change.kind === 'key') { progression.settings.key = change.value; applyKeyToMaterial(); }
+          if (change.kind === 'clef') progression.settings.clef = change.value;
+          if (change.kind === 'meter') { const [num, den] = change.value.split('/').map(Number); progression.settings.timeSig = { num, den }; }
+          if (change.kind === 'chordBeats') progression.chords[change.index].bars = beatsToBars(change.value, progression.settings.timeSig);
+          if (change.kind === 'chordVoicing') {
+            const chord = progression.chords[change.index]; chord.notes = [...change.value]; delete chord.hint;
+            keySourceNotes.set(chord.id, [...change.value]); keySourceHints.set(chord.id, null);
+          }
+          if (change.kind === 'seamTechnique') progression.seams[change.index] = change.value;
+        }
+      }
+
+      // ── Play ──────────────────────────────────────────────────────
+      async function beginPlay({ useSuggestions }) {
+        reviewController?.abort(); reviewController = null;
+        clearTimeout(reviewNudgeTimer); reviewPanel.hide();
+        await flushSave();
+        scene.setMode('transition');
+        scene.setStatus(useSuggestions ? 'Applying your selected ideas…' : 'Preparing the performance…');
+        score.setPerformanceMode(true); scene.clearKeys(); scene.setProgress(0);
+        playControls.show(); playControls.setPaused(false); playControls.setUndoAvailable(Boolean(undoSnapshot));
+        clearTimeout(transitionTimer);
+        transitionTimer = setTimeout(startPerformance, matchMedia('(prefers-reduced-motion: reduce)').matches ? 120 : TRANSITION_MS);
+      }
+
+      async function startPerformance() {
+        if (destroyed) return;
+        scene.setMode('playing'); scene.setStatus('LEGATO is performing');
+        playbackSession = await createPlaybackSession({
+          segments,
+          settings: progression.settings,
+          onState(state) {
+            if (state === 'paused') { scene.setMode('paused'); playControls.setPaused(true); }
+            if (state === 'playing') { scene.setMode('playing'); playControls.setPaused(false); }
+          },
+          onEventStart(event) {
+            scene.highlightKeys(event.notes, true);
+            scene.launchNotes(event.notes, () => score.revealSource(event.sourceId, event.seamIndex));
+          },
+          onEventEnd(event) { scene.highlightKeys(event.notes, false); },
+          onMeasure(measure) { score.setActiveMeasure(measure); },
+          onProgress(value) { scene.setProgress(value); },
+          onComplete() {
+            scene.clearKeys(); scene.setMode('complete'); scene.setStatus('The full score is assembled');
+            agent.setReaction('The score is complete. Ask me about anything you noticed in the performance.');
+          },
+        });
+        playbackSession?.play();
+      }
+
+      function togglePause() {
+        if (!playbackSession) return;
+        if (playbackSession.getState() === 'paused') playbackSession.resume();
+        else playbackSession.pause();
+      }
+
+      function replay() {
+        if (!playbackSession) return startPerformance();
+        scene.clearKeys(); scene.setProgress(0);
+        score.setPerformanceMode(false); score.setPerformanceMode(true);
+        playbackSession.replay();
+      }
+
+      function stopToEdit() {
+        clearTimeout(transitionTimer);
+        playbackSession?.stop(); playbackSession = null;
+        stopPlayback(); scene.clearKeys(); scene.setProgress(0);
+        score.setPerformanceMode(false); score.setActiveMeasure(null);
+        playControls.hide(); reviewPanel.hide(); scene.setMode('edit'); scene.setStatus('Back in the editing room');
+        renderPanels();
+      }
+
+      function undoLegatoChanges() {
+        if (!undoSnapshot) return;
+        stopToEdit();
+        progression = clone(undoSnapshot); undoSnapshot = null;
+        keySourceNotes.clear(); keySourceHints.clear(); rememberKeySources(progression.chords, { overwrite: true });
+        segments = compile(progression); renderPanels(); scheduleAutosave();
+        agent.setReaction('Your score is back exactly as it was before my review changes.');
+      }
+
+      async function leaveWorkspace() {
+        clearTimeout(transitionTimer); clearTimeout(localFeedbackTimer); reviewController?.abort();
+        playbackSession?.stop(); stopPlayback(); scene.clearKeys();
+        await flushSave();
+        navigate(LANDING_HASH);
+      }
+
+      // ── Rendering ─────────────────────────────────────────────────
+      function renderPanels() {
+        inspector.render({ progression, selectedSeam, selectedChordId, projectName: currentName });
+        score.render(segments, progression.settings);
+        if (selectedChordId) score.selectChord(selectedChordId);
+        else if (selectedSeam >= 0) score.selectSeam(selectedSeam);
+        settingsDialog.render(progression.settings);
+        scene.setProjectName(currentName);
+        scene.setSettingsSummary(settingsSummary(progression.settings));
+        scene.setTempo(progression.settings.tempo);
+        scene.setProceedEnabled(segments.length > 0);
+      }
+
+      rememberKeySources(progression.chords, { overwrite: true });
+      segments = compile(progression);
+      renderPanels();
+      scene.setMode('edit');
+      scheduleAutosave();
 
       return {
         async unmount() {
+          destroyed = true;
           window.removeEventListener('beforeunload', beforeUnload);
-          stopPlayback();
+          clearTimeout(transitionTimer); clearTimeout(reviewNudgeTimer); clearTimeout(localFeedbackTimer);
+          reviewController?.abort(); playbackSession?.stop(); stopPlayback();
           await flushSave();
+          scene.destroy();
           root.replaceChildren();
         },
       };
     },
   };
+}
+
+function settingsSummary(settings) {
+  const keyNames = ['C♭', 'G♭', 'D♭', 'A♭', 'E♭', 'B♭', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F♯', 'C♯'];
+  return `${ settings.tempo } BPM · ${ settings.timeSig.num }/${ settings.timeSig.den } · ${ keyNames[settings.key + 7] } · ${ settings.clef.toUpperCase() }`;
+}
+
+function clone(value) { return JSON.parse(JSON.stringify(value)); }
+
+function isImportantChange(change) {
+  return ['addChord', 'editChord', 'deleteChord', 'technique'].includes(change?.type);
 }

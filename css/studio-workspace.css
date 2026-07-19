@@ -1,0 +1,422 @@
+/* Layered pianist-studio workspace. Loaded last so it can deliberately adapt
+   the existing inspector, score, modal, and form primitives. */
+
+.studio-workspace {
+    --scene-gold: #e3ad5d;
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    min-height: 680px;
+    overflow: hidden;
+    isolation: isolate;
+    color: var(--ivory);
+    background: #080503
+}
+
+.studio-room-layer {
+    position: absolute;
+    inset: 0;
+    z-index: -3;
+    background-image: linear-gradient(90deg, rgba(4, 3, 3, .08), rgba(4, 3, 3, .05)), url('/assets/studio/room-night.png');
+    background-size: cover;
+    background-position: 50% 50%;
+    filter: saturate(.9) brightness(.84);
+    transform: scale(1.015);
+    transition: filter 1.5s ease, transform 2s cubic-bezier(.2, .8, .2, 1)
+}
+
+.studio-workspace[data-mode="playing"] .studio-room-layer,
+.studio-workspace[data-mode="paused"] .studio-room-layer,
+.studio-workspace[data-mode="complete"] .studio-room-layer,
+.studio-workspace[data-mode="transition"] .studio-room-layer {
+    filter: saturate(1.08) brightness(.62);
+    transform: scale(1.035)
+}
+
+.studio-workspace::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(180deg, rgba(3, 2, 2, .7), transparent 18%, transparent 76%, rgba(2, 2, 2, .58)), radial-gradient(circle at 78% 52%, transparent, rgba(2, 2, 2, .26) 78%)
+}
+
+.studio-window-mask {
+    position: absolute;
+    left: 28.5%;
+    top: 4.5%;
+    width: 47%;
+    height: 54%;
+    z-index: -2;
+    overflow: hidden;
+    clip-path: polygon(1% 2%, 99% 1%, 99% 98%, 0 98%);
+    opacity: .22;
+    transition: opacity 1.3s ease, filter 1.3s ease
+}
+
+.studio-window-mask canvas {
+    width: 100%;
+    height: 100%;
+    display: block
+}
+
+.studio-workspace[data-mode="playing"] .studio-window-mask,
+.studio-workspace[data-mode="paused"] .studio-window-mask,
+.studio-workspace[data-mode="complete"] .studio-window-mask,
+.studio-workspace[data-mode="transition"] .studio-window-mask {
+    opacity: 1;
+    filter: drop-shadow(0 0 28px rgba(64, 112, 178, .28))
+}
+
+.studio-toolbar {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 20;
+    height: 76px;
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) minmax(220px, 1fr) auto auto;
+    align-items: center;
+    gap: 24px;
+    padding: 0 28px;
+    border-bottom: 1px solid rgba(230, 206, 170, .12);
+    background: linear-gradient(180deg, rgba(5, 4, 3, .93), rgba(5, 4, 3, .56), transparent);
+    backdrop-filter: blur(5px)
+}
+
+.studio-brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ivory);
+    cursor: pointer;
+    text-align: left
+}
+
+.studio-brand>span:last-child { display: grid; gap: 2px }
+.studio-brand strong { font: 600 1rem var(--font-display); letter-spacing: .19em }
+.studio-brand small { color: var(--tan-dim); font: .5rem var(--font-mono); letter-spacing: .14em; text-transform: uppercase }
+.studio-brand:hover strong { color: var(--anchor) }
+
+.studio-project-copy { min-width: 0; display: grid; gap: 3px }
+.studio-project-name { width: min(440px, 100%); padding: 0; border: 0; border-bottom: 1px solid transparent; outline: 0; background: transparent; color: var(--ivory); font: 500 1.1rem var(--font-display) }
+.studio-project-name:focus { border-color: var(--anchor) }
+.studio-status { color: var(--tan); font: 500 .57rem var(--font-mono); letter-spacing: .05em; white-space: nowrap }
+
+.studio-proceed {
+    height: 46px;
+    min-width: 180px;
+    display: grid;
+    align-content: center;
+    gap: 3px;
+    padding: 0 18px;
+    border: 1px solid rgba(228, 175, 94, .74);
+    background: linear-gradient(135deg, #e0a955, #b77b31);
+    color: #100b06;
+    cursor: pointer;
+    text-align: left;
+    box-shadow: 0 10px 36px rgba(0, 0, 0, .32)
+}
+.studio-proceed span { font: 600 .68rem var(--font-mono); text-transform: uppercase; letter-spacing: .12em }
+.studio-proceed small { font: 500 .48rem var(--font-mono); text-transform: uppercase; opacity: .64 }
+.studio-proceed:disabled { opacity: .35; cursor: default }
+
+.studio-score-frame {
+    position: absolute;
+    left: 30%;
+    top: 14.5%;
+    width: 42%;
+    height: 46%;
+    z-index: 8;
+    padding: 8px;
+    border: 1px solid rgba(230, 206, 170, .19);
+    background: linear-gradient(145deg, rgba(21, 16, 12, .96), rgba(7, 6, 5, .88));
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .48), inset 0 1px rgba(255, 235, 199, .05);
+    transform: perspective(1100px) rotateX(-1.2deg);
+    transition: left 1.7s ease, top 1.7s ease, width 1.7s ease, height 1.7s ease, transform 1.7s ease, background .8s ease
+}
+
+.studio-score-frame::before {
+    content: "ON THE STAND";
+    position: absolute;
+    top: -18px;
+    left: 3px;
+    color: rgba(227, 173, 93, .72);
+    font: 500 .48rem var(--font-mono);
+    letter-spacing: .18em
+}
+
+.studio-score-frame>.sheet-music-pane { height: 100%; padding: 0; background: transparent; min-width: 0 }
+.studio-score-frame .notation-stage { height: 100%; min-height: 0; margin: 0; padding: 32px 0 0; display: block; overflow: auto; border: 0; background: radial-gradient(circle at 50% 20%, rgba(209, 161, 90, .07), transparent 48%); scrollbar-color: rgba(209, 161, 90, .42) transparent }
+.studio-score-frame .sheet-music-stage-meta { position: sticky; inset: 0 0 auto; z-index: 6; min-height: 30px; display: flex; align-items: center; gap: 10px; padding: 0 10px; background: rgba(10, 8, 6, .92); color: var(--tan-dim); font: 500 .49rem var(--font-mono); letter-spacing: .11em; text-transform: uppercase }
+.studio-score-frame .sheet-music-stage-meta>output { margin-right: auto }
+.studio-score-frame .sheet-music-stage-meta div { display: flex; align-items: center; gap: 4px }
+.studio-score-frame .sheet-music-stage-meta button { height: 22px; border: 1px solid var(--hairline); background: transparent; color: var(--tan); font: 500 .5rem var(--font-mono); cursor: pointer }
+.studio-score-frame .sheet-music-layer { min-width: 580px; transform-origin: top left }
+.studio-score-frame .sheet-music svg { display: block }
+.studio-score-frame .measure-group { cursor: default }
+.studio-score-frame [data-source-id] { cursor: pointer; transform-box: fill-box; transform-origin: center; transition: opacity .35s ease, filter .25s ease, transform .25s ease }
+.studio-score-frame [data-source-id]:hover,
+.studio-score-frame [data-source-id].is-selected { filter: drop-shadow(0 0 4px #e3ad5d); transform: translateY(-1px) }
+.studio-score-frame [data-source-id].is-awaiting { opacity: .05 }
+.studio-score-frame .measure-group.is-playing { filter: drop-shadow(0 0 6px rgba(227, 173, 93, .7)); opacity: 1 }
+.studio-score-frame .notation-stage.is-maximized { position: fixed; inset: 84px 5vw 5vh; z-index: 100; height: auto; padding-top: 36px; border: 1px solid rgba(227, 173, 93, .45); background: rgba(7, 5, 4, .98); box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .75); clip-path: inset(0 -100vmax) }
+
+.studio-settings-engraving {
+    position: absolute;
+    z-index: 16;
+    right: 28.5%;
+    bottom: 18.5%;
+    display: grid;
+    gap: 4px;
+    min-width: 245px;
+    padding: 10px 13px;
+    border: 1px solid rgba(224, 169, 85, .29);
+    background: rgba(10, 7, 5, .72);
+    color: var(--anchor);
+    text-align: left;
+    cursor: pointer;
+    box-shadow: inset 0 0 22px rgba(209, 161, 90, .03)
+}
+.studio-settings-engraving span { font: 500 .52rem var(--font-mono); letter-spacing: .18em; text-transform: uppercase }
+.studio-settings-engraving output { color: #f0c98d; font: 500 .62rem var(--font-mono); text-shadow: 0 0 12px rgba(227, 173, 93, .42) }
+.studio-settings-engraving:hover { border-color: var(--anchor) }
+
+.studio-legato-hit {
+    position: absolute;
+    left: 0;
+    bottom: -3%;
+    z-index: 9;
+    width: 31%;
+    height: 78%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    overflow: visible;
+    transition: left 1.7s ease, width 1.7s ease, height 1.7s ease, opacity .7s ease
+}
+.studio-legato { position: absolute; inset: auto 0 0; width: 100%; height: 100%; object-fit: contain; transition: opacity 1.2s ease, transform 2.4s ease; filter: drop-shadow(20px 28px 24px rgba(0, 0, 0, .62)) }
+.studio-legato-edit { opacity: 1 }
+.studio-legato-play { opacity: 0 }
+.studio-legato-hit:hover .studio-legato-edit { transform: translateY(-3px) }
+
+.studio-inspector {
+    position: absolute;
+    z-index: 14;
+    right: 18px;
+    top: 92px;
+    bottom: 24px;
+    width: min(27vw, 430px);
+    min-width: 330px;
+    overflow: hidden;
+    border: 1px solid rgba(230, 206, 170, .16);
+    background: linear-gradient(150deg, rgba(15, 11, 8, .95), rgba(7, 5, 4, .91));
+    box-shadow: 0 26px 70px rgba(0, 0, 0, .5);
+    backdrop-filter: blur(13px);
+    transition: opacity .65s ease, transform .9s ease
+}
+.studio-inspector .editor-pane { position: static; height: 100%; border: 0; background: transparent }
+.studio-inspector .editor-scroll { height: 100%; padding-bottom: 28px; overflow: auto }
+.studio-inspector .project-title-block { padding: 22px 22px 18px }
+.studio-inspector .project-name-input { font-size: 1.35rem }
+.studio-inspector .editor-section { padding: 20px 18px }
+.studio-inspector .inspector-copy { margin: 8px 0 0; color: var(--tan-dim); font-size: .68rem; line-height: 1.5 }
+.studio-inspector .inspector-reset { margin-top: 13px; padding: 0; border: 0; background: none; color: var(--tan-dim); font: 500 .56rem var(--font-mono); text-transform: uppercase; cursor: pointer }
+.studio-inspector .inspector-reset:hover { color: var(--anchor) }
+.studio-inspector .chord-row { background: rgba(19, 14, 10, .76) }
+.studio-inspector .chord-row.selected { border-color: rgba(227, 173, 93, .65); box-shadow: inset 2px 0 var(--anchor) }
+.studio-inspector .transition-explain { white-space: nowrap; padding: 6px; font-size: .52rem }
+
+.studio-agent-mount { position: absolute; z-index: 40; left: 3.2%; top: 13%; width: min(330px, 23vw) }
+.legato-bubble { position: relative; padding: 15px 17px; border: 1px solid rgba(230, 206, 170, .2); background: rgba(12, 9, 7, .93); box-shadow: 0 18px 50px rgba(0, 0, 0, .42); backdrop-filter: blur(12px) }
+.legato-bubble::after { content: ""; position: absolute; left: 30%; bottom: -10px; width: 18px; height: 18px; border-right: 1px solid rgba(230, 206, 170, .2); border-bottom: 1px solid rgba(230, 206, 170, .2); background: rgba(12, 9, 7, .93); transform: rotate(45deg) }
+.legato-bubble.is-quiet { opacity: .35 }
+.legato-bubble.is-thinking .legato-name::after { content: " ···"; animation: pulse 1s infinite }
+.legato-name { color: var(--anchor); font: 500 .52rem var(--font-mono); letter-spacing: .17em }
+.legato-reaction { margin: 8px 0 12px; color: var(--ivory); font: 400 .75rem/1.55 var(--font-body) }
+.legato-open { padding: 0; border: 0; background: none; color: var(--anchor); font: 500 .56rem var(--font-mono); text-transform: uppercase; cursor: pointer }
+.legato-bubble-actions { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px }
+.legato-activity { max-width: 120px; padding: 4px 18px 4px 6px; border: 1px solid rgba(230, 206, 170, .18); background: rgba(0, 0, 0, .25); color: var(--tan-dim); font: 500 .48rem var(--font-mono); text-transform: uppercase }
+
+.legato-conversation {
+    position: fixed;
+    z-index: 120;
+    right: 2vw;
+    bottom: 3vh;
+    width: min(520px, 42vw);
+    max-height: 76vh;
+    border: 1px solid rgba(227, 173, 93, .35);
+    background: rgba(10, 7, 5, .98);
+    box-shadow: 0 34px 100px rgba(0, 0, 0, .7);
+    display: grid;
+    grid-template-rows: auto minmax(100px, 1fr) auto
+}
+.legato-conversation header { display: flex; align-items: start; padding: 18px; border-bottom: 1px solid var(--hairline) }
+.legato-conversation h2 { margin: 4px 0 0; font: 500 1.45rem var(--font-display) }
+.legato-close { margin-left: auto; border: 0; background: none; color: var(--tan); font-size: 1.5rem; cursor: pointer }
+.legato-messages { overflow: auto; display: grid; align-content: start; gap: 10px; padding: 16px; min-height: 160px }
+.legato-message { max-width: 92%; padding: 12px 14px; border: 1px solid var(--hairline); background: var(--panel-2) }
+.legato-message.is-user { justify-self: end; background: rgba(209, 161, 90, .12) }
+.legato-message strong { color: var(--anchor); font: 500 .52rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase }
+.legato-message>p { margin: 6px 0 0; font-size: .74rem; line-height: 1.55 }
+.legato-structured { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 9px }
+.legato-structured p { margin: 0; padding: 9px; background: rgba(0, 0, 0, .2); color: var(--tan); font-size: .69rem; line-height: 1.5 }
+.legato-structured span { display: block; margin-bottom: 5px; color: var(--anchor); font: 500 .48rem var(--font-mono); text-transform: uppercase }
+.legato-form { padding: 14px; border-top: 1px solid var(--hairline) }
+.legato-form label { display: block; margin-bottom: 7px; color: var(--tan-dim); font: .52rem var(--font-mono); text-transform: uppercase }
+.legato-form>div { display: grid; grid-template-columns: 1fr auto; gap: 8px }
+.legato-form textarea { resize: none; padding: 10px; border: 1px solid var(--hairline); background: var(--panel); color: var(--ivory); font: .72rem/1.4 var(--font-body) }
+.legato-form button { border: 1px solid var(--anchor); background: var(--anchor); color: var(--ink); font: 500 .6rem var(--font-mono); cursor: pointer }
+
+.studio-review-mount { position: absolute; inset: 0; z-index: 80; pointer-events: none }
+.review-panel { position: absolute; left: 23%; top: 14%; width: min(760px, 55vw); max-height: 76vh; overflow: auto; pointer-events: auto; border: 1px solid rgba(227, 173, 93, .38); background: linear-gradient(145deg, rgba(18, 13, 9, .985), rgba(7, 5, 4, .985)); box-shadow: 0 45px 120px rgba(0, 0, 0, .78); backdrop-filter: blur(18px) }
+.review-panel header { display: flex; align-items: start; padding: 22px 24px; border-bottom: 1px solid var(--hairline) }
+.review-panel h2 { margin: 6px 0 0; font: 500 2rem var(--font-display) }
+.review-close { margin-left: auto; border: 0; background: none; color: var(--tan); font-size: 1.6rem; cursor: pointer }
+.review-body { padding: 22px 24px }
+.review-overview { margin: 0 0 18px; color: var(--tan); font: 500 1.05rem/1.55 var(--font-display) }
+.review-suggestions { display: grid; gap: 9px }
+.review-suggestion { display: grid; grid-template-columns: auto 1fr; gap: 11px; padding: 14px; border: 1px solid var(--hairline); background: rgba(25, 18, 12, .68); cursor: pointer }
+.review-suggestion input { accent-color: var(--anchor) }
+.review-suggestion span { display: grid; gap: 5px }
+.review-suggestion strong { color: var(--ivory); font-size: .8rem }
+.review-suggestion small { color: var(--tan); font-size: .69rem; line-height: 1.45 }
+.review-suggestion em { color: var(--anchor); font: 500 .56rem/1.4 var(--font-mono); font-style: normal }
+.review-panel footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px }
+.review-panel footer button,
+.review-error button,
+.review-loading button { min-height: 38px; padding: 0 13px; font: 500 .57rem var(--font-mono); text-transform: uppercase; cursor: pointer }
+.review-primary { border: 1px solid var(--anchor); background: var(--anchor); color: var(--ink) }
+.review-secondary { border: 1px solid var(--hairline); background: transparent; color: var(--tan) }
+.review-loading,
+.review-error { min-height: 220px; display: grid; place-items: center; align-content: center; gap: 18px; text-align: center; color: var(--tan) }
+.review-error>div { display: flex; gap: 8px }
+
+.studio-play-controls-mount { position: absolute; z-index: 55; left: 50%; bottom: 26px; transform: translateX(-50%) }
+.play-controls { display: flex; align-items: center; gap: 1px; padding: 5px; border: 1px solid rgba(227, 173, 93, .3); background: rgba(8, 6, 5, .87); backdrop-filter: blur(12px); box-shadow: 0 18px 50px rgba(0, 0, 0, .48) }
+.play-controls button { height: 38px; padding: 0 15px; border: 0; border-right: 1px solid var(--hairline); background: transparent; color: var(--tan); font: 500 .56rem var(--font-mono); text-transform: uppercase; cursor: pointer }
+.play-controls button:hover { color: var(--anchor) }
+
+.studio-particle-progress { position: absolute; z-index: 45; left: 18%; right: 18%; bottom: 81px; height: 2px; opacity: 0; background: rgba(230, 206, 170, .12); transition: opacity .7s ease }
+.studio-particle-progress span { position: absolute; inset: 0 auto 0 0; width: 0; background: linear-gradient(90deg, rgba(90, 142, 213, .6), var(--anchor)); box-shadow: 0 0 12px var(--anchor); transition: width .08s linear }
+
+.studio-keyboard { position: absolute; z-index: 22; left: 47.4%; top: 62.4%; width: 39.5%; height: 6.7%; pointer-events: none; transform: perspective(700px) rotateZ(2deg) rotateX(55deg); transform-origin: left top; opacity: 0; transition: opacity .8s ease }
+.studio-key { position: absolute; top: 0; bottom: 0; left: calc(var(--key-index) * 1.136%); width: 1.15%; border-radius: 0 0 2px 2px; transition: background .06s ease, box-shadow .06s ease, transform .06s ease }
+.studio-key.is-black { top: 0; height: 62%; z-index: 2 }
+.studio-key.is-sounding { background: rgba(241, 177, 78, .72); box-shadow: 0 0 12px 4px rgba(241, 177, 78, .75); transform: translateY(3px) }
+
+.studio-flying-note {
+    position: fixed;
+    z-index: 70;
+    color: #f2bd69;
+    font: 500 1.55rem var(--font-display);
+    line-height: 1;
+    pointer-events: none;
+    text-shadow: 0 0 14px rgba(241, 177, 78, .9);
+    animation: note-flight .78s cubic-bezier(.22, .72, .18, 1) forwards
+}
+
+.studio-workspace[data-mode="review"] .studio-inspector { opacity: .28; pointer-events: none }
+.studio-workspace[data-mode="review"] .studio-score-frame { opacity: .42 }
+.studio-workspace[data-mode="review"] .studio-proceed,
+.studio-workspace[data-mode="transition"] .studio-proceed,
+.studio-workspace[data-mode="playing"] .studio-proceed,
+.studio-workspace[data-mode="paused"] .studio-proceed,
+.studio-workspace[data-mode="complete"] .studio-proceed { opacity: 0; pointer-events: none }
+
+.studio-workspace[data-mode="transition"] .studio-inspector,
+.studio-workspace[data-mode="playing"] .studio-inspector,
+.studio-workspace[data-mode="paused"] .studio-inspector,
+.studio-workspace[data-mode="complete"] .studio-inspector,
+.studio-workspace[data-mode="transition"] .studio-settings-engraving,
+.studio-workspace[data-mode="playing"] .studio-settings-engraving,
+.studio-workspace[data-mode="paused"] .studio-settings-engraving,
+.studio-workspace[data-mode="complete"] .studio-settings-engraving {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(28px)
+}
+
+.studio-workspace[data-mode="transition"] .studio-score-frame,
+.studio-workspace[data-mode="playing"] .studio-score-frame,
+.studio-workspace[data-mode="paused"] .studio-score-frame,
+.studio-workspace[data-mode="complete"] .studio-score-frame {
+    left: 14%;
+    top: 10%;
+    width: 70%;
+    height: 57%;
+    transform: none;
+    background: linear-gradient(180deg, rgba(5, 8, 14, .54), rgba(3, 5, 9, .27));
+    border-color: rgba(135, 176, 226, .18)
+}
+
+.studio-workspace[data-mode="transition"] .studio-legato-hit,
+.studio-workspace[data-mode="playing"] .studio-legato-hit,
+.studio-workspace[data-mode="paused"] .studio-legato-hit,
+.studio-workspace[data-mode="complete"] .studio-legato-hit { left: 33%; width: 39%; height: 69%; pointer-events: auto }
+.studio-workspace[data-mode="transition"] .studio-legato-edit,
+.studio-workspace[data-mode="playing"] .studio-legato-edit,
+.studio-workspace[data-mode="paused"] .studio-legato-edit,
+.studio-workspace[data-mode="complete"] .studio-legato-edit { opacity: 0 }
+.studio-workspace[data-mode="transition"] .studio-legato-play,
+.studio-workspace[data-mode="playing"] .studio-legato-play,
+.studio-workspace[data-mode="paused"] .studio-legato-play,
+.studio-workspace[data-mode="complete"] .studio-legato-play { opacity: .92; animation: legato-breathe 4.8s ease-in-out infinite }
+.studio-workspace[data-mode="playing"] .studio-keyboard,
+.studio-workspace[data-mode="paused"] .studio-keyboard { opacity: 1 }
+.studio-workspace[data-mode="playing"] .studio-particle-progress,
+.studio-workspace[data-mode="paused"] .studio-particle-progress,
+.studio-workspace[data-mode="complete"] .studio-particle-progress { opacity: 1 }
+.studio-workspace[data-mode="transition"] .studio-agent-mount,
+.studio-workspace[data-mode="playing"] .studio-agent-mount,
+.studio-workspace[data-mode="paused"] .studio-agent-mount,
+.studio-workspace[data-mode="complete"] .studio-agent-mount { left: auto; right: 2.5%; top: 12%; width: min(320px, 22vw) }
+.studio-workspace[data-mode="playing"] .studio-score-frame .measure-group:not(.is-playing) { opacity: .72 }
+.studio-workspace[data-mode="paused"] .studio-stars,
+.studio-workspace[data-mode="paused"] .studio-legato-play { animation-play-state: paused }
+
+.score-settings-dialog { width: min(780px, 72vw); padding: 0; border: 1px solid rgba(227, 173, 93, .38); color: var(--ivory); background: rgba(10, 7, 5, .98); box-shadow: 0 35px 100px rgba(0, 0, 0, .72) }
+.score-settings-dialog::backdrop { background: rgba(0, 0, 0, .68); backdrop-filter: blur(3px) }
+.score-settings-card { padding: 26px }
+.score-settings-card header { display: flex; align-items: start; margin-bottom: 24px; padding-bottom: 18px; border-bottom: 1px solid var(--hairline) }
+.score-settings-card h2 { margin: 5px 0 0; font: 500 2rem var(--font-display) }
+.score-settings-card .close-button { margin-left: auto }
+
+@keyframes legato-breathe { 50% { transform: translateY(-3px) scale(1.004) } }
+@keyframes note-flight {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(.5) rotate(-15deg) }
+    18% { opacity: 1 }
+    76% { opacity: 1 }
+    100% { opacity: 0; transform: translate(calc(-50% + var(--flight-x)), calc(-50% + var(--flight-y))) scale(1.05) rotate(7deg) }
+}
+
+@media(max-width:1250px) {
+    .studio-score-frame { left: 26%; width: 43% }
+    .studio-inspector { width: 340px; min-width: 300px }
+    .studio-agent-mount { left: 2%; width: 250px }
+    .studio-settings-engraving { right: 29%; min-width: 210px }
+}
+
+@media(max-width:1000px) {
+    .studio-workspace { min-width: 760px }
+    .studio-toolbar { grid-template-columns: 170px 1fr auto; gap: 14px }
+    .studio-status { display: none }
+    .studio-inspector { right: 10px; width: 310px; min-width: 0 }
+    .studio-score-frame { left: 22%; width: 43% }
+    .studio-agent-mount { top: 82px; width: 220px }
+}
+
+@media(prefers-reduced-motion:reduce) {
+    .studio-room-layer,
+    .studio-score-frame,
+    .studio-legato-hit,
+    .studio-legato,
+    .studio-inspector,
+    .studio-settings-engraving { transition-duration: .12s !important }
+    .studio-legato-play { animation: none !important }
+    .studio-flying-note { animation-duration: .05s !important }
+}
