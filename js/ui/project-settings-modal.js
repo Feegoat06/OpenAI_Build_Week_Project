@@ -16,6 +16,7 @@
  * signatures is offered via a 12-wedge dial plus enharmonic chips; the engine
  * already supports the full range.
  */
+import { installBackdropDismissal } from './dialog.js';
 
 // 12 clock positions around the dial, going clockwise from 12 o'clock. Each
 // wedge stores its canonical circle-of-fifths integer. The enharmonic zones
@@ -332,6 +333,7 @@ export function openProjectSettingsModal(dialog, { mode, initial, onSubmit }) {
 
   const close = () => dialog.close();
   cancelBtn.onclick = close;
+  installBackdropDismissal(dialog, close);
 
   function commit() {
     const cleanName = (nameInput.value || '').trim() || 'Untitled project';

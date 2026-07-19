@@ -25,6 +25,7 @@ import { QUALITIES, inferChordIdentity, noteName, notesFrom } from '../engine/ch
 import { playNote, playChord } from '../audio/playback.js';
 import { beatsToBars, barsToBeats } from '../state.js';
 import { pitchClassOf, octaveOf, spellPitchClass, vexKey } from '../util/midi.js';
+import { installBackdropDismissal } from './dialog.js';
 
 const DIALOG_TEMPLATE = `
 <dialog id="piano-dialog">
@@ -371,6 +372,8 @@ export function openPianoModal(dialog, existingChord, onSave, timeSig = { num: 4
   };
   previewPlay.onclick = (event) => { event.stopPropagation(); playPreview(); };
   dialog.querySelector('#modal-cancel').onclick = () => dialog.close();
+  installBackdropDismissal(dialog, () => dialog.close());
+
   dialog.querySelector('#modal-save').onclick = () => {
     const notes = [...selected].sort((a, b) => a - b);
     if (!notes.length) return;
