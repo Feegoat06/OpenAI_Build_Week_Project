@@ -90,7 +90,10 @@ export function renderNotation(container, segments, settings, chords = []) {
   }
 
   const measureCount = Math.max(...segments.map((segment) => segment.measureIndex)) + 1;
-  const width = Math.max(600, container.clientWidth || 820);
+  // The panel supplies the exact unscaled width for the current button zoom.
+  // A modest floor keeps extremely narrow mobile panes usable without forcing
+  // a desktop-sized SVG that leaves a visual gap at higher zoom levels.
+  const width = Math.max(320, container.clientWidth || 820);
   const clef = resolvedClef(segments, settings.clef);
   const staffColor = '#927a58';
   const lineColor = '#69563f';
@@ -107,7 +110,7 @@ export function renderNotation(container, segments, settings, chords = []) {
   // the same width as a whole-note bar.
   const measures = Array.from({ length: measureCount }, (_, measure) => {
     const measureSegments = segments.filter((segment) => segment.measureIndex === measure);
-    const staveNotes = measureSegments.map((segment) => {
+    const entries = measureSegments.map((segment) => {
       const identity = segment.isTechnique ? null : identityBySourceId.get(segment.sourceId) ?? null;
       const spelled = segment.notes.map((midi) => vexKeyForNote(midi, identity, settings.key));
       const staveNote = new VF.StaveNote({
@@ -131,47 +134,90 @@ export function renderNotation(container, segments, settings, chords = []) {
       staveNote.setStyle({ fillStyle: color, strokeStyle: color });
       staveNote.setLedgerLineStyle?.({ fillStyle: color, strokeStyle: color });
       notesBySource.push({ segment, note: staveNote });
-      return staveNote;
+      return { segment, note: staveNote };
     });
 
-    if (!staveNotes.length) return { measure, staveNotes, voice: null, formatter: null, minimumWidth: 0 };
+    return { measure, entries };
+  });
+
+  const makeFragment = (measure, entries, startsMeasure, endsMeasure) => {
+    const staveNotes = entries.map((entry) => entry.note);
     const voice = new VF.Voice({ num_beats: settings.timeSig.num, beat_value: settings.timeSig.den }).setMode(VF.Voice.Mode.SOFT);
     voice.addTickables(staveNotes);
     const formatter = new VF.Formatter().joinVoices([voice]);
-    return { measure, staveNotes, voice, formatter, minimumWidth: formatter.preCalculateMinTotalWidth([voice]) };
-  });
+    return {
+      measure,
+      entries,
+      staveNotes,
+      voice,
+      formatter,
+      startsMeasure,
+      endsMeasure,
+      minimumWidth: formatter.preCalculateMinTotalWidth([voice]),
+    };
+  };
 
-  // Each measure gets its own minimum width. A dense measure may therefore
-  // push the following measure onto the next system, while simple neighbours
-  // can still share a line. Do not use the densest bar as the width for every
-  // bar: that made an entire score one-column wide.
-  // Leave a real visual and layout buffer at both sides of the notation
-  // stage. Besides improving readability, this gives zoom reflow a little
-  // headroom: a measure moves to the next system before its barline appears
-  // to collide with the panel edge.
-  const SYSTEM_SIDE_GUTTER = 36;
-  const systemWidth = width - SYSTEM_SIDE_GUTTER * 2;
+  // Lay out at note boundaries, not only at barlines. If a dense measure does
+  // not entirely fit at the end of a system, its leading notes use that
+  // remaining room and its unfinished material continues on the next system.
+  // This keeps a zoomed-in score visually continuous instead of leaving an
+  // empty tail and moving the whole bar to a new row.
+  const systemWidth = width - 20;
   const FIRST_SYSTEM_PREFIX = 126; // clef + time signature + key signature
   const LATER_SYSTEM_PREFIX = 40;  // left/right breathing room around notes
   const MIN_STAVE_WIDTH = 230;
-  const measureWidth = (measure, beginsSystem) => Math.max(
-    MIN_STAVE_WIDTH,
-    Math.ceil(measure.minimumWidth + (beginsSystem ? FIRST_SYSTEM_PREFIX : LATER_SYSTEM_PREFIX)),
+  const MIN_FRAGMENT_WIDTH = 96;
+  const fragmentWidth = (fragment, beginsSystem) => Math.max(
+    fragment.startsMeasure && fragment.endsMeasure ? MIN_STAVE_WIDTH : MIN_FRAGMENT_WIDTH,
+    Math.ceil(fragment.minimumWidth + (beginsSystem ? FIRST_SYSTEM_PREFIX : LATER_SYSTEM_PREFIX)),
   );
   const systems = [];
   let system = [];
   let occupiedWidth = 0;
 
   for (const measure of measures) {
-    const requiredWidth = measureWidth(measure, system.length === 0);
-    if (system.length && occupiedWidth + requiredWidth > systemWidth) {
-      systems.push(system);
-      system = [];
-      occupiedWidth = 0;
+    let entryIndex = 0;
+    while (entryIndex < measure.entries.length) {
+      const beginsSystem = system.length === 0;
+      let best = null;
+
+      // Choose the largest run of consecutive notes that fits the current
+      // system. Segment boundaries are already rhythmic boundaries from the
+      // compiler, so no duration is shortened or dropped by a line break.
+      for (let endIndex = entryIndex + 1; endIndex <= measure.entries.length; endIndex += 1) {
+        const fragment = makeFragment(
+          measure.measure,
+          measure.entries.slice(entryIndex, endIndex),
+          entryIndex === 0,
+          endIndex === measure.entries.length,
+        );
+        const requiredWidth = fragmentWidth(fragment, beginsSystem);
+        if (occupiedWidth + requiredWidth <= systemWidth || (beginsSystem && !best)) {
+          best = { fragment, endIndex, minimumWidth: Math.min(requiredWidth, systemWidth) };
+          continue;
+        }
+        break;
+      }
+
+      if (!best) {
+        systems.push(system);
+        system = [];
+        occupiedWidth = 0;
+        continue;
+      }
+
+      system.push(best);
+      occupiedWidth += best.minimumWidth;
+      entryIndex = best.endIndex;
+
+      // A measure that remains unfinished continues at the beginning of the
+      // next system, where it receives no artificial barline.
+      if (entryIndex < measure.entries.length) {
+        systems.push(system);
+        system = [];
+        occupiedWidth = 0;
+      }
     }
-    const widthInSystem = measureWidth(measure, system.length === 0);
-    system.push({ measure, minimumWidth: widthInSystem });
-    occupiedWidth += widthInSystem;
   }
   if (system.length) systems.push(system);
 
@@ -182,12 +228,12 @@ export function renderNotation(container, segments, settings, chords = []) {
   systems.forEach((row, rowIndex) => {
     const minimumTotal = row.reduce((total, item) => total + item.minimumWidth, 0);
     const extraPerMeasure = (systemWidth - minimumTotal) / row.length;
-    let x = SYSTEM_SIDE_GUTTER;
+    let x = 10;
     row.forEach((item, column) => {
       const isLast = column === row.length - 1;
-      const staveWidth = isLast ? SYSTEM_SIDE_GUTTER + systemWidth - x : item.minimumWidth + extraPerMeasure;
+      const staveWidth = isLast ? 10 + systemWidth - x : item.minimumWidth + extraPerMeasure;
       placements.push({
-        ...item.measure,
+        ...item.fragment,
         column,
         row: rowIndex,
         x,
@@ -204,13 +250,19 @@ export function renderNotation(container, segments, settings, chords = []) {
   const context = renderer.getContext();
 
   for (const measureData of placements) {
-    const { measure, staveNotes, voice, formatter, column, row, x, staveWidth } = measureData;
+    const { measure, staveNotes, voice, formatter, column, row, x, staveWidth, startsMeasure, endsMeasure } = measureData;
     const y = 16 + row * rowHeight;
     layout.push({ index: measure, x, width: staveWidth, staffTop: y + 40, lineGap: 10 });
     context.openGroup('measure-group', `measure-${ measure }`, { 'data-measure': String(measure) });
     const stave = new VF.Stave(x, y, staveWidth);
+    if (!startsMeasure) stave.setBegBarType(VF.Barline.type.NONE);
+    if (!endsMeasure) stave.setEndBarType(VF.Barline.type.NONE);
     if (column === 0) {
-      stave.addClef(clef).addTimeSignature(`${ settings.timeSig.num }/${ settings.timeSig.den }`).addKeySignature(KEY_SIGNATURES[settings.key + 7]);
+      stave.addClef(clef);
+      // Time signatures introduce the score; they are not repeated merely
+      // because a visual system wrapped while zooming.
+      if (row === 0) stave.addTimeSignature(`${ settings.timeSig.num }/${ settings.timeSig.den }`);
+      stave.addKeySignature(KEY_SIGNATURES[settings.key + 7]);
     }
     styleModifiers(stave, staffColor);
     context.setStrokeStyle(lineColor); context.setFillStyle(lineColor);
@@ -222,6 +274,9 @@ export function renderNotation(container, segments, settings, chords = []) {
     context.closeGroup();
   }
 
+  const rowByNote = new Map();
+  placements.forEach(({ row, entries }) => entries.forEach(({ note }) => rowByNote.set(note, row)));
+
   for (let index = 0; index < notesBySource.length - 1; index += 1) {
     const current = notesBySource[index];
     const next = notesBySource[index + 1];
@@ -229,8 +284,8 @@ export function renderNotation(container, segments, settings, chords = []) {
     const count = Math.min(current.note.keys.length, next.note.keys.length);
     const directions = tieDirections(current.note, next.note, count, VF);
 
-    const currentRow = placements[current.segment.measureIndex].row;
-    const nextRow = placements[next.segment.measureIndex].row;
+    const currentRow = rowByNote.get(current.note);
+    const nextRow = rowByNote.get(next.note);
     if (currentRow !== nextRow) {
       // A tie cannot be drawn directly between systems: its endpoints have
       // different vertical positions. Engraving convention uses an outgoing

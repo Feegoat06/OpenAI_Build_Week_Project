@@ -215,7 +215,7 @@
 .sheet-music-layer {
     position: relative;
     width: 100%;
-    min-width: 580px;
+    min-width: 0;
     z-index: 1;
     isolation: auto
 }
