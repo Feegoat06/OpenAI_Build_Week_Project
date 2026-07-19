@@ -19,7 +19,7 @@ const TEMPLATE = `
 <div class="landing-shell">
   <header class="landing-header">
     <div class="landing-brand">
-      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <img class="brand-mark" src="/assets/brand/legato-icon.png" alt="" draggable="false">
       <span class="brand">LEGATO</span>
     </div>
     <span class="landing-tagline">Composition workspace</span>

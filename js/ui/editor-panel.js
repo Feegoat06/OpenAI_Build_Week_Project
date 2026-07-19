@@ -16,7 +16,7 @@ import { escapeHtml } from '../util/html.js';
 const TEMPLATE = `
 <header class="brand-block">
   <button id="brand-home" class="brand-home" type="button" aria-label="View all projects">
-    <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+    <img class="brand-mark" src="/assets/brand/legato-icon.png" alt="" draggable="false">
     <span class="brand-copy"><span class="brand">LEGATO</span>
       <span class="brand-subtitle">Progression coach</span>
     </span>

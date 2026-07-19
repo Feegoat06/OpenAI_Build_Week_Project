@@ -21,29 +21,12 @@
 }
 
 .brand-mark {
-    display: flex;
-    align-items: flex-end;
-    gap: 3px;
-    width: 28px;
-    height: 25px
-}
-
-.brand-mark span {
-    width: 3px;
-    border-radius: 2px;
-    background: var(--anchor)
-}
-
-.brand-mark span:nth-child(1) {
-    height: 11px
-}
-
-.brand-mark span:nth-child(2) {
-    height: 23px
-}
-
-.brand-mark span:nth-child(3) {
-    height: 16px
+    display: block;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+    user-select: none
 }
 
 .brand {
