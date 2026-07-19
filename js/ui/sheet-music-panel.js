@@ -89,6 +89,7 @@ export function mountSheetMusicPanel({ container, callbacks = {} }) {
 
   let zoom = 1;
   let resizeFrame = 0;
+  let zoomSettleTimer = 0;
   let currentSegments = [];
   let baseSettings = null;
   let effectiveSettings = null;
@@ -132,14 +133,36 @@ export function mountSheetMusicPanel({ container, callbacks = {} }) {
     return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(value * 1000) / 1000));
   }
 
-  function setZoom(nextZoom) {
-    zoom = clampZoom(nextZoom);
+  function commitZoomLayout() {
     layerEl.style.width = `${ 100 / zoom }%`;
+    scheduleRerender();
+  }
+
+  function setZoom(nextZoom, { deferLayout = false } = {}) {
+    zoom = clampZoom(nextZoom);
+    // Keep the visible sheet the width of its stage at every zoom level. This
+    // gives a zoomed-out sheet additional layout room for more measures per
+    // system, while a crowded measure at higher zoom moves its neighbour to
+    // the next line instead of compressing either bar's notation.
     layerEl.style.zoom = String(zoom);
     zoomValueEl.textContent = `${ Math.round(zoom * 100) }%`;
     zoomOutBtn.disabled = zoom <= ZOOM_MIN + 1e-6;
     zoomInBtn.disabled = zoom >= ZOOM_MAX - 1e-6;
-    scheduleRerender();
+    if (!deferLayout) {
+      window.clearTimeout(zoomSettleTimer);
+      zoomSettleTimer = 0;
+      commitZoomLayout();
+      return;
+    }
+
+    // Wheel and trackpad gestures can emit many events per frame. Scaling the
+    // existing sheet is cheap and smooth; rebuilding VexFlow for every tiny
+    // delta is not. Reflow once the gesture has paused instead.
+    window.clearTimeout(zoomSettleTimer);
+    zoomSettleTimer = window.setTimeout(() => {
+      zoomSettleTimer = 0;
+      commitZoomLayout();
+    }, 160);
   }
 
   zoomOutBtn.onclick = () => setZoom(zoom - ZOOM_STEP);
@@ -157,7 +180,7 @@ export function mountSheetMusicPanel({ container, callbacks = {} }) {
   notationStageEl.addEventListener('wheel', (event) => {
     if (event.deltaY === 0) return;
     event.preventDefault();
-    setZoom(zoom - normalizeWheelDelta(event) * WHEEL_ZOOM_FACTOR);
+    setZoom(zoom - normalizeWheelDelta(event) * WHEEL_ZOOM_FACTOR, { deferLayout: true });
   }, { passive: false });
   window.addEventListener('resize', scheduleRerender);
 
