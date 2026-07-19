@@ -118,7 +118,7 @@ const DIALOG_TEMPLATE = `
           </div>
         </div>
         <div class="key-enharmonics" id="project-settings-key-enharmonics" aria-label="Enharmonic alternatives"></div>
-        <p class="field-note">Key signature moves only its matching natural notes by a sharp or flat; it never globally transposes the progression.</p>
+        <p class="field-note">Key signature only changes how the sheet music is spelled; it never alters the actual notes of any chord.</p>
       </fieldset>
     </div>
     <footer class="dialog-footer">

@@ -11,6 +11,7 @@
  * `sourceId` (see rhythm.js), even across a barline.
  */
 import { vexKey } from '../util/midi.js';
+import { accidentalFor } from '../engine/key-signature.js';
 
 const KEY_SIGNATURES = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
 const DURATIONS = new Map([[4, 'w'], [2, 'h'], [1, 'q'], [0.5, '8'], [0.25, '16']]);
@@ -85,7 +86,7 @@ export function renderNotation(container, segments, settings) {
         duration: DURATIONS.get(segment.durationBeats) ?? 'q',
       });
       segment.notes.forEach((midi, index) => {
-        const accidental = vexKey(midi, settings.key).split('/')[0].slice(1);
+        const accidental = accidentalFor(vexKey(midi, settings.key), settings.key);
         if (accidental) staveNote.addModifier(new VF.Accidental(accidental), index);
       });
       const color = segment.isTechnique ? techniqueColor : userColor;

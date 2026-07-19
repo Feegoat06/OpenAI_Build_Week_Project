@@ -30,7 +30,8 @@ import { compileProgression } from './engine/compile.js';
  * @property {number}  tempo     BPM. PLAYER-ONLY — compile() ignores it.
  * @property {TimeSig} timeSig   Structural. measureLength (quarter-beats) = num * 4 / den.
  * @property {number}  key       Key signature on the circle of fifths, -7..+7. Sharps +, flats −.
- *                               Applies its named sharps/flats to material; never globally transposes every note.
+ *                               Notation-only: drives enharmonic spelling and printed accidentals.
+ *                               Never mutates chord.notes. Transposition is a separate feature.
  * @property {'auto'|'treble'|'bass'} clef  One clef, no grand staff. 'auto' resolved at render time.
  */
 

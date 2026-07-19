@@ -16,7 +16,6 @@
  */
 import { compile, makeChord, reconcileSeams, beatsToBars, isTechniqueUsable } from '../state.js';
 import { chordDisplayName } from '../engine/chords.js';
-import { applyKeySignature } from '../engine/key-signature.js';
 import { TECHNIQUES } from '../engine/techniques.js';
 import { evaluateAllTechniques } from '../engine/technique-eligibility.js';
 import { playSegments, stopPlayback } from '../audio/playback.js';
@@ -59,8 +58,6 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog, ex
       let segments = [];
       let editingId = null;
       let selectedSeam = 0;
-      const keySourceNotes = new Map();
-      const keySourceHints = new Map();
 
       // ── DOM shell + panels ──────────────────────────────────────────
       root.insertAdjacentHTML('beforeend', SHELL_TEMPLATE);
@@ -177,29 +174,9 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog, ex
       function replaceChords(nextChords) {
         progression.seams = reconcileSeams(progression.chords, progression.seams, nextChords);
         progression.chords = nextChords;
-        rememberKeySources(nextChords);
         resetIneligibleSeams();
         selectedSeam = Math.min(selectedSeam, Math.max(0, progression.seams.length - 1));
         rerender();
-      }
-
-      function rememberKeySources(chords) {
-        chords.forEach((chord) => {
-          if (!keySourceNotes.has(chord.id)) keySourceNotes.set(chord.id, [...chord.notes]);
-          if (!keySourceHints.has(chord.id)) keySourceHints.set(chord.id, chord.hint ? { ...chord.hint } : null);
-        });
-      }
-
-      function applyKeyToMaterial() {
-        rememberKeySources(progression.chords);
-        progression.chords.forEach((chord) => {
-          const sourceNotes = keySourceNotes.get(chord.id);
-          chord.notes = applyKeySignature(sourceNotes, progression.settings.key);
-          const changed = chord.notes.some((note, index) => note !== sourceNotes[index]);
-          if (changed) delete chord.hint;
-          else if (keySourceHints.get(chord.id)) chord.hint = { ...keySourceHints.get(chord.id) };
-        });
-        resetIneligibleSeams();
       }
 
       function applyProjectSettings({ name, settings }) {
@@ -217,7 +194,9 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog, ex
           clef: settings.clef,
         };
 
-        if (keyChanged) applyKeyToMaterial();
+        // Key is spelling only: it never mutates chord.notes. Transposition is
+        // a separate future feature. Time signature can invalidate technique
+        // seam beat-costs, so those still get re-checked here.
         if (timeSigChanged) resetIneligibleSeams();
         if (keyChanged || timeSigChanged || clefChanged) coach.setEmpty();
 
@@ -244,15 +223,9 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog, ex
           const chord = progression.chords.find((item) => item.id === editingId);
           const { hint: _oldHint, ...withoutHint } = chord;
           Object.assign(chord, withoutHint, input);
-          keySourceNotes.set(chord.id, [...input.notes]);
-          keySourceHints.set(chord.id, input.hint ? { ...input.hint } : null);
-          chord.notes = applyKeySignature(input.notes, progression.settings.key);
           if (!input.hint) delete chord.hint;
         } else {
           const chord = makeChord(input.notes, input.bars, input.hint);
-          keySourceNotes.set(chord.id, [...input.notes]);
-          keySourceHints.set(chord.id, input.hint ? { ...input.hint } : null);
-          chord.notes = applyKeySignature(input.notes, progression.settings.key);
           progression.chords.push(chord);
           if (progression.chords.length > 1) progression.seams.push(null);
         }
@@ -337,9 +310,6 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog, ex
 
       function handleLoadExample() {
         progression = exampleProgressionFactory();
-        keySourceNotes.clear();
-        keySourceHints.clear();
-        applyKeyToMaterial();
         selectedSeam = 0;
         coach.setEmpty();
         transport.setStatus('Example loaded');
@@ -360,7 +330,6 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog, ex
         scheduleAutosave();
       }
 
-      applyKeyToMaterial();
       rerender();
 
       return {

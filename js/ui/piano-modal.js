@@ -25,6 +25,7 @@ import { QUALITIES, inferChordIdentity, noteName, notesFrom } from '../engine/ch
 import { playNote, playChord } from '../audio/playback.js';
 import { beatsToBars, barsToBeats } from '../state.js';
 import { pitchClassOf, octaveOf, spellPitchClass, vexKey } from '../util/midi.js';
+import { accidentalFor } from '../engine/key-signature.js';
 import { installBackdropDismissal } from './dialog.js';
 
 const DIALOG_TEMPLATE = `
@@ -148,8 +149,7 @@ function renderPreview(container, notes, key) {
     duration: 'w',
   });
   sorted.forEach((midi, index) => {
-    // Anything past the letter is an accidental ('#' or 'b'); attach it explicitly.
-    const accidental = vexKey(midi, key).split('/')[0].slice(1);
+    const accidental = accidentalFor(vexKey(midi, key), key);
     if (accidental) staveNote.addModifier(new VF.Accidental(accidental), index);
   });
   staveNote.setStyle({ fillStyle: noteColor, strokeStyle: noteColor });
