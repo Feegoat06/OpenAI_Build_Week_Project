@@ -84,7 +84,6 @@
     border-bottom: 0
 }
 
-.landing-primary,
 .landing-secondary {
     padding: 10px 20px;
     border-radius: var(--radius-pill);
@@ -105,16 +104,6 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap
-}
-
-.landing-primary {
-    border: 1px solid var(--accent);
-    background: var(--accent);
-    color: var(--ink)
-}
-
-.landing-primary:hover {
-    filter: brightness(1.08)
 }
 
 .landing-secondary {
@@ -191,6 +180,11 @@
     margin-left: auto;
     color: var(--tan-dim);
     transition: transform .15s ease
+}
+
+.landing-trash-caret .ui-icon {
+    width: 16px;
+    height: 16px
 }
 
 .landing-trash-toggle[aria-expanded="true"] .landing-trash-caret {

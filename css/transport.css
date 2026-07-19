@@ -53,6 +53,11 @@
     font-size: .72rem
 }
 
+.play-button .play-icon .ui-icon {
+    width: 20px;
+    height: 20px
+}
+
 .play-button .play-copy {
     display: grid;
     gap: 3px;
@@ -75,10 +80,18 @@
 }
 
 .stop-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: transparent;
     color: var(--tan-dim);
     padding: 0 18px;
     margin-left: 10px
+}
+
+.stop-button .ui-icon {
+    width: 14px;
+    height: 14px
 }
 
 .stop-button:hover:not(:disabled) {

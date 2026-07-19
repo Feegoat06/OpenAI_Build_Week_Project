@@ -14,6 +14,7 @@
  * DOM lives here. The view module wires callbacks up to the store.
  */
 import { escapeHtml } from '../util/html.js';
+import { icon } from './icons.js';
 
 const TEMPLATE = `
 <div class="landing-shell">
@@ -44,7 +45,7 @@ const TEMPLATE = `
           <input id="landing-import-file" type="file" accept="application/json,.json" hidden />
         </div>
         <div class="landing-section-actions">
-          <button id="landing-new" class="landing-primary" type="button">+ New Project</button>
+          <button id="landing-new" class="primary-action" type="button">${ icon('plus') }<span>New Project</span></button>
         </div>
       </div>
       <div id="landing-recent-grid" class="landing-grid landing-grid-rail"></div>
@@ -63,7 +64,7 @@ const TEMPLATE = `
         <button id="landing-trash-toggle" class="landing-section-head landing-trash-toggle" type="button" aria-expanded="false" aria-controls="landing-trash-grid">
           <h2 id="landing-trash-title">Trash</h2>
           <span id="landing-trash-count" class="landing-count">Empty</span>
-          <span class="landing-trash-caret" aria-hidden="true">▾</span>
+          <span class="landing-trash-caret">${ icon('chevronDown') }</span>
         </button>
         <button id="landing-trash-empty" class="landing-trash-empty" type="button" hidden>Empty trash</button>
       </div>
@@ -152,14 +153,6 @@ function emptyMessage(kind) {
   return 'No demos.';
 }
 
-// Simple 1.5-stroke line icons matching the editor's icon-button style.
-const ICONS = {
-  rename: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
-  duplicate: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="1"/><path d="M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3"/></svg>',
-  export: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3"/><path d="M8 7l4-4 4 4"/><path d="M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg>',
-  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13a2 2 0 002 2h6a2 2 0 002-2l1-13"/><path d="M10 11v7M14 11v7"/></svg>',
-};
-
 /**
  * Push each project's own theme onto its card so the accent stripe (border-
  * left) and title font reflect that project — not whatever theme was last
@@ -173,13 +166,13 @@ function applyCardTheme(card, project) {
   if (theme.chordFont) card.dataset.chordFont = theme.chordFont;
 }
 
-function iconButton({ icon, label, action, dangerous = false }) {
+function iconButton({ icon: iconName, label, action, dangerous = false }) {
   // Uses the shared .icon-button primitive from css/base.css so every icon
   // button in the app (landing, editor, dialog) picks up hover/focus tweaks
   // in one place.
   const classes = ['icon-button', 'is-bordered'];
   if (dangerous) classes.push('is-danger');
-  return `<button type="button" class="${ classes.join(' ') }" data-action="${ action }" title="${ label }" aria-label="${ label }">${ ICONS[icon] }</button>`;
+  return `<button type="button" class="${ classes.join(' ') }" data-action="${ action }" title="${ label }" aria-label="${ label }">${ icon(iconName) }</button>`;
 }
 
 function renderCard(project, kind, callbacks) {

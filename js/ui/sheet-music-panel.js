@@ -15,6 +15,7 @@
 import { renderNotation } from '../sheet-music/render.js';
 import { createSheetMusicParticles } from '../sheet-music/particles.js';
 import { TEMPO_MIN, TEMPO_MAX, CHORD_FONTS } from '../state.js';
+import { icon } from './icons.js';
 
 const CHORD_FONT_LABELS = { jazztext: 'JazzText', classical: 'Classical' };
 
@@ -37,9 +38,9 @@ const TEMPLATE = `
 
 <section class="notation-stage" aria-label="Progression notation">
   <div class="sheet-music-zoom-control" role="group" aria-label="Zoom">
-    <button id="sheet-music-zoom-out" type="button" aria-label="Zoom out">−</button>
+    <button id="sheet-music-zoom-out" type="button" aria-label="Zoom out">${ icon('minus') }</button>
     <output id="sheet-music-zoom-value" aria-live="polite">100%</output>
-    <button id="sheet-music-zoom-in" type="button" aria-label="Zoom in">+</button>
+    <button id="sheet-music-zoom-in" type="button" aria-label="Zoom in">${ icon('plus') }</button>
   </div>
   <div class="staff-glow" aria-hidden="true"></div>
   <div id="sheet-music-layer" class="sheet-music-layer">

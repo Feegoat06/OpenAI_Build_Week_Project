@@ -1,3 +1,5 @@
+import { icon } from './icons.js';
+
 /**
  * Playback controls (play/pause toggle, stop) plus the status pulse and text.
  *
@@ -11,10 +13,10 @@ const TEMPLATE = `
 <section class="transport" aria-label="Playback controls">
   <div class="transport-buttons">
     <button id="play" class="play-button" type="button">
-      <span class="play-icon" aria-hidden="true">▶</span>
+      <span class="play-icon">${ icon('play') }</span>
       <span class="play-copy"><strong>Play</strong><small>Play progression</small></span>
     </button>
-    <button id="stop" class="stop-button" type="button">■ Stop</button>
+    <button id="stop" class="stop-button" type="button">${ icon('stop') }<span>Stop</span></button>
   </div>
   <div class="transport-status">
     <span id="playback-pulse"></span>
@@ -48,17 +50,17 @@ export function mountTransport({ container, callbacks }) {
      */
     setPlayMode(mode) {
       if (mode === 'pause') {
-        playIconEl.textContent = '⏸';
+        playIconEl.innerHTML = icon('pause');
         playStrongEl.textContent = 'Pause';
         playSmallEl.textContent = 'Pause playback';
         playBtn.setAttribute('aria-label', 'Pause playback');
       } else if (mode === 'resume') {
-        playIconEl.textContent = '▶';
+        playIconEl.innerHTML = icon('play');
         playStrongEl.textContent = 'Resume';
         playSmallEl.textContent = 'Continue from cursor';
         playBtn.setAttribute('aria-label', 'Resume playback');
       } else {
-        playIconEl.textContent = '▶';
+        playIconEl.innerHTML = icon('play');
         playStrongEl.textContent = 'Play';
         playSmallEl.textContent = 'Play progression';
         playBtn.setAttribute('aria-label', 'Play progression');

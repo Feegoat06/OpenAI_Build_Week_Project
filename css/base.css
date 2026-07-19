@@ -141,6 +141,58 @@ body {
     letter-spacing: .2em
 }
 
+/* Shared filled action used wherever creating a project or chord is the
+   primary next step. Keeping the icon and button treatment together makes
+   those actions visually identical across surfaces. */
+.primary-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 22px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    color: var(--ink);
+    font: 600 .82rem var(--font-body);
+    letter-spacing: 0;
+    cursor: pointer;
+    transition: filter .15s ease
+}
+
+.primary-action:hover {
+    filter: brightness(1.08)
+}
+
+.primary-action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px
+}
+
+.primary-action svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.25;
+    stroke-linecap: round
+}
+
+/* Base treatment for every icon emitted by js/ui/icons.js. Individual
+   controls set size locally; all icons otherwise inherit their container's
+   colour and use one consistent rounded line style. */
+.ui-icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: middle;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.75;
+    stroke-linecap: round;
+    stroke-linejoin: round
+}
+
 /* Icon-style buttons — shared primitive.
    Three variants layered on the base:
      .icon-button                 minimal borderless glyph (delete row, close dialog)

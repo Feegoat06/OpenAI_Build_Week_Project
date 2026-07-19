@@ -27,6 +27,7 @@ import { beatsToBars, barsToBeats } from '../state.js';
 import { pitchClassOf, octaveOf, spellPitchClass } from '../util/midi.js';
 import { accidentalFor } from '../engine/key-signature.js';
 import { installBackdropDismissal } from './dialog.js';
+import { icon } from './icons.js';
 
 const DIALOG_TEMPLATE = `
 <dialog id="piano-dialog">
@@ -37,7 +38,7 @@ const DIALOG_TEMPLATE = `
         <h2>Shape the chord</h2>
         <p>Pick a root and quality, then toggle any key to shape the octave, doubling, and inversion.</p>
       </div>
-      <button id="modal-cancel" class="close-button" aria-label="Close chord editor">×</button>
+      <button id="modal-cancel" class="close-button" aria-label="Close chord editor">${ icon('close') }</button>
     </header>
     <div class="modal-controls">
       <label><span>Root</span><select id="modal-root"></select></label>
@@ -63,19 +64,19 @@ const DIALOG_TEMPLATE = `
       </div>
       <aside class="preview-panel" aria-label="Chord preview">
         <div class="preview-header">
-          <div class="preview-title"><span>Preview</span><button type="button" id="preview-play" class="preview-play" aria-label="Play chord preview">▶</button></div>
+          <div class="preview-title"><span>Preview</span><button type="button" id="preview-play" class="preview-play" aria-label="Play chord preview">${ icon('play') }</button></div>
           <span id="octave-readout">Octave 4</span>
         </div>
         <div class="preview-sheet" id="preview-sheet" role="button" tabindex="0" aria-label="Play chord preview"></div>
         <div class="octave-controls">
-          <button type="button" id="octave-down" aria-label="Shift down one octave">▼ Octave</button>
-          <button type="button" id="octave-up" aria-label="Shift up one octave">▲ Octave</button>
+          <button type="button" id="octave-down" aria-label="Shift down one octave">${ icon('chevronDown') }<span>Octave</span></button>
+          <button type="button" id="octave-up" aria-label="Shift up one octave">${ icon('chevronUp') }<span>Octave</span></button>
         </div>
       </aside>
     </div>
     <footer class="dialog-footer">
       <p id="voicing-status">The exact selected notes are stored—never an inversion preset.</p>
-      <button id="modal-save" class="save-button" type="button">Save exact voicing <span>→</span></button>
+      <button id="modal-save" class="save-button" type="button">Save exact voicing ${ icon('arrowRight') }</button>
     </footer>
   </form>
 </dialog>

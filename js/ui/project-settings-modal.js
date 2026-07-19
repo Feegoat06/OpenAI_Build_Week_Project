@@ -17,6 +17,7 @@
  * already supports the full range.
  */
 import { installBackdropDismissal } from './dialog.js';
+import { icon } from './icons.js';
 import { TEMPO_MIN, TEMPO_MAX, TEMPO_DEFAULT, ACCENT_PRESETS, CHORD_FONTS, DEFAULT_ACCENT, DEFAULT_CHORD_FONT, makeTheme } from '../state.js';
 
 // 12 clock positions around the dial, going clockwise from 12 o'clock. Each
@@ -85,7 +86,7 @@ const DIALOG_TEMPLATE = `
         <h2 id="project-settings-title">Create new project</h2>
         <p id="project-settings-lede">Name your project and choose the score settings you'd like to start with.</p>
       </div>
-      <button id="project-settings-cancel" class="close-button" type="button" aria-label="Close project settings">×</button>
+      <button id="project-settings-cancel" class="close-button" type="button" aria-label="Close project settings">${ icon('close') }</button>
     </header>
     <div class="project-settings-body">
       <label class="project-settings-name">
@@ -138,7 +139,7 @@ const DIALOG_TEMPLATE = `
     </div>
     <footer class="dialog-footer">
       <p id="project-settings-hint">Everything here can be changed later from the project title.</p>
-      <button id="project-settings-submit" class="save-button" type="button">Create <span>→</span></button>
+      <button id="project-settings-submit" class="save-button" type="button">Create ${ icon('arrowRight') }</button>
     </footer>
   </form>
 </dialog>
@@ -333,7 +334,7 @@ export function openProjectSettingsModal(dialog, { mode, initial, onSubmit }) {
   lede.textContent = isCreate
     ? "Name your project and choose the score settings you'd like to start with."
     : 'Update the name or score settings for this project.';
-  submitBtn.innerHTML = isCreate ? 'Create <span>→</span>' : 'Save <span>→</span>';
+    submitBtn.innerHTML = isCreate ? `Create ${ icon('arrowRight') }` : `Save ${ icon('arrowRight') }`;
   hint.textContent = isCreate
     ? 'Everything here can be changed later from the project title.'
     : 'Changes apply immediately; cancel to discard.';

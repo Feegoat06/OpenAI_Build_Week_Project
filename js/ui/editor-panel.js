@@ -13,6 +13,7 @@ import { chordDisplayName, formatChordSymbol, noteName, chordToneName, chordSpel
 import { evaluateAllTechniques } from '../engine/technique-eligibility.js';
 import { escapeHtml } from '../util/html.js';
 import { majorKeyName, timeSigLabel, tempoLabel } from '../util/labels.js';
+import { icon } from './icons.js';
 
 // Quick-add chord chips shown in the empty state. Each is a diatonic
 // C-major chord — the four most common starting points for a new
@@ -41,7 +42,7 @@ const TEMPLATE = `
     <div class="project-title-row">
       <input id="project-name-input" class="project-name-input" type="text" spellcheck="false" autocomplete="off" aria-label="Project name" />
       <button id="edit-project-settings" class="edit-project-settings" type="button" aria-label="Edit project settings">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 4.5 5 5-9.5 9.5H5v-5z"></path><path d="m12.5 6.5 5 5"></path></svg>
+        ${ icon('edit') }
       </button>
     </div>
     <div id="project-meta-pills" class="project-meta-pills"></div>
@@ -49,7 +50,7 @@ const TEMPLATE = `
 
   <section class="editor-section" aria-labelledby="chords-title">
     <div class="section-title">
-      <h2 id="chords-title">Chords</h2><button id="add-chord" class="text-action">+ Add</button>
+      <h2 id="chords-title">Chords</h2><button id="add-chord" class="primary-action" type="button">${ icon('plus') }<span>Add Chord</span></button>
     </div>
     <div id="progression-list" class="progression-list"></div>
   </section>
@@ -93,7 +94,7 @@ export function mountEditorPanel({ container, callbacks }) {
     const options = beatChoices.includes(currentBeats) ? beatChoices : [...beatChoices, currentBeats].sort((a, b) => a - b);
     const displayName = escapeHtml(chordDisplayName(chord, progression.settings.key));
     const glyphHtml = renderChordGlyph(formatChordSymbol(chord, progression.settings.key));
-    row.innerHTML = `<button class="chord-main" aria-label="Edit ${ displayName }"><strong class="chord-glyph">${ glyphHtml }</strong><small>${ escapeHtml(notes) }</small></button><label class="chord-beats" aria-label="Beats for ${ displayName }"><span class="chord-beats-display" aria-hidden="true">${ formatBeatDisplay(currentBeats) } <em>${ currentBeats === 1 ? 'beat' : 'beats' }</em></span><select class="chord-beats-select">${ options.map((beats) => `<option value="${ beats }" ${ beats === currentBeats ? 'selected' : '' }>${ formatBeatDisplay(beats) }</option>`).join('') }</select></label><button class="delete-button" aria-label="Delete ${ displayName }">×</button>`;
+    row.innerHTML = `<button class="chord-main" aria-label="Edit ${ displayName }"><strong class="chord-glyph">${ glyphHtml }</strong><small>${ escapeHtml(notes) }</small></button><label class="chord-beats" aria-label="Beats for ${ displayName }"><span class="chord-beats-display" aria-hidden="true">${ formatBeatDisplay(currentBeats) } <em>${ currentBeats === 1 ? 'beat' : 'beats' }</em></span><select class="chord-beats-select">${ options.map((beats) => `<option value="${ beats }" ${ beats === currentBeats ? 'selected' : '' }>${ formatBeatDisplay(beats) }</option>`).join('') }</select></label><button class="delete-button" aria-label="Delete ${ displayName }">${ icon('trash') }</button>`;
     row.querySelector('.chord-main').onclick = () => callbacks.onEditChord(chord);
     row.querySelector('.chord-beats-select').onchange = (event) => callbacks.onSetChordBeats(chord, Number(event.target.value));
     row.querySelector('.delete-button').onclick = () => callbacks.onDeleteChord(chord);
@@ -143,7 +144,7 @@ export function mountEditorPanel({ container, callbacks }) {
     seam.className = `transition-seam ${ selectedTechnique ? 'has-technique' : 'is-direct' } ${ selectedSeam === index ? 'selected' : '' } ${ isOpen ? 'is-open' : '' }`;
     const toggleLabel = selectedTechnique
       ? `${ escapeHtml(selectedTechnique.name) } · ${ formatBeatCost(selectedTechnique.beatCost) }`
-      : '+ Add transition';
+      : `${ icon('plus', 'transition-label-icon') } Add transition`;
     seam.innerHTML = `<div class="transition-connector"><button class="transition-toggle" type="button" aria-expanded="${ isOpen }"><span class="transition-rule" aria-hidden="true"></span><span class="transition-label">${ toggleLabel }</span><span class="transition-rule" aria-hidden="true"></span></button><button class="transition-explain" type="button">Explain</button></div>${ isOpen ? `<div class="transition-editor"><div class="transition-editor-copy"><strong>${ fromName } → ${ toName }</strong><small>${ budget } beat${ budget === 1 ? '' : 's' } available in the departing tail</small></div><label>Technique <select class="transition-select" aria-label="Technique for ${ fromName } to ${ toName }"></select></label></div>` : '' }`;
     const toggle = seam.querySelector('.transition-toggle');
     toggle.onclick = () => {
