@@ -58,6 +58,7 @@ export function mountSheetMusicPanel({ container }) {
   let resizeFrame = 0;
   let currentSegments = [];
   let currentSettings = null;
+  let currentChords = [];
   let activeMeasure = null;
 
   function applyActiveMeasureClasses() {
@@ -68,7 +69,7 @@ export function mountSheetMusicPanel({ container }) {
 
   function drawSheetMusic() {
     if (!currentSettings) return { measureCount: 0, layout: [] };
-    const result = renderNotation(sheetMusicEl, currentSegments, currentSettings);
+    const result = renderNotation(sheetMusicEl, currentSegments, currentSettings, currentChords);
     particles.setSheetMusic(sheetMusicEl.querySelector('svg'), result.layout);
     applyActiveMeasureClasses();
     return result;
@@ -100,9 +101,10 @@ export function mountSheetMusicPanel({ container }) {
     transportMount: container.querySelector('#transport-mount'),
     coachMount: container.querySelector('#coach-mount'),
     particles,
-    render(segments, settings) {
+    render(segments, settings, chords = []) {
       currentSegments = segments;
       currentSettings = settings;
+      currentChords = chords;
       const { measureCount } = drawSheetMusic();
       summaryEl.textContent = `${ measureCount } measure${ measureCount === 1 ? '' : 's' } · ${ segments.length } event${ segments.length === 1 ? '' : 's' }`;
     },

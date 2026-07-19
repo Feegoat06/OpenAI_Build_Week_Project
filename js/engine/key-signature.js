@@ -20,15 +20,16 @@ function keySignatureAccidental(letter, key) {
 }
 
 /**
- * Given a VexFlow key string ('f#/4', 'bb/3', 'c/4') and the current key
- * signature (-7..+7), return the accidental modifier that must be drawn on
- * that note so it reads as the intended pitch — or '' when the key
+ * Given a VexFlow key string ('f#/4', 'bb/3', 'c/4', 'f##/4', …) and the
+ * current key signature (-7..+7), return the accidental modifier that must be
+ * drawn on that note so it reads as the intended pitch — or '' when the key
  * signature already covers it.
  *
- *   - '#' / 'b'  : the note's spelling differs from the key sig.
- *   - 'n'        : the note is natural but the key sig would sharpen or flatten
- *                  its letter, so a natural sign is needed.
- *   - ''         : the note's spelling matches the key sig; no modifier.
+ *   - '#' / 'b' / '##' / 'bb' : the note's spelling differs from the key sig.
+ *   - 'n'                     : the note is natural but the key sig would
+ *                               sharpen or flatten its letter, so a natural
+ *                               sign is needed.
+ *   - ''                      : the note's spelling matches the key sig.
  */
 export function accidentalFor(vexKeyString, key) {
   const spelling = vexKeyString.split('/')[0];

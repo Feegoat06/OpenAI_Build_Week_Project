@@ -325,7 +325,7 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog, ex
         transport.setPulseActive(false);
         segments = compile(progression);
         editor.render({ progression, selectedSeam, projectName: currentName });
-        sheetMusic.render(segments, progression.settings);
+        sheetMusic.render(segments, progression.settings, progression.chords);
         coach.setContext(coachContextText());
         scheduleAutosave();
       }

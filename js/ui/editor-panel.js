@@ -9,7 +9,7 @@
  * by the pencil button — they no longer have inline controls here.
  */
 import { availableBeats, chordTotalBeats, barsToBeats, beatsToBars, isTechniqueUsable } from '../state.js';
-import { chordDisplayName, noteName } from '../engine/chords.js';
+import { chordDisplayName, noteName, chordToneName, chordSpellingIdentity } from '../engine/chords.js';
 import { evaluateAllTechniques } from '../engine/technique-eligibility.js';
 import { escapeHtml } from '../util/html.js';
 
@@ -75,7 +75,10 @@ export function mountEditorPanel({ container, callbacks }) {
     const beatLabel = (beats) => beats === 0.5 ? '½' : beats === 1.5 ? '1½' : String(beats);
     const row = document.createElement('article');
     row.className = 'chord-row';
-    const notes = chord.notes.map((note) => noteName(note, progression.settings.key)).join(' · ');
+    const identity = chordSpellingIdentity(chord);
+    const notes = chord.notes.map((note) => identity
+      ? chordToneName(note, identity, progression.settings.key)
+      : noteName(note, progression.settings.key)).join(' · ');
     const currentBeats = Number(barsToBeats(chord.bars, timeSig).toFixed(4));
     const options = beatChoices.includes(currentBeats) ? beatChoices : [...beatChoices, currentBeats].sort((a, b) => a - b);
     const displayName = escapeHtml(chordDisplayName(chord, progression.settings.key));
