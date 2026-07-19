@@ -1,5 +1,5 @@
-/* Left composition workspace: brand header, intro block, score-settings,
-   chord-list, and transition seams. Owns the entire <aside class="editor-pane"> subtree. */
+/* Left composition workspace: brand header, project title, chord list, and
+   transition seams. Owns the entire <aside class="editor-pane"> subtree. */
 
 .editor-pane {
     height: 100vh;
@@ -102,32 +102,6 @@
     border-color: rgba(209, 161, 90, .55)
 }
 
-.icon-button {
-    display: grid;
-    place-items: center;
-    width: 31px;
-    height: 31px;
-    padding: 0;
-    border: 1px solid var(--hairline);
-    background: transparent;
-    color: var(--tan-dim);
-    cursor: pointer
-}
-
-.icon-button:hover,
-.icon-button[aria-expanded="true"] {
-    border-color: rgba(209, 161, 90, .55);
-    color: var(--anchor)
-}
-
-.icon-button svg {
-    width: 15px;
-    height: 15px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.5
-}
-
 .editor-scroll {
     overflow: auto;
     padding-bottom: 70px
@@ -158,8 +132,15 @@
     margin-bottom: 10px
 }
 
+.project-title-row {
+    display: flex;
+    align-items: center;
+    gap: 14px
+}
+
 .project-name-input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     padding: 4px 0;
     border: 0;
     border-bottom: 1px solid transparent;
@@ -179,9 +160,39 @@
     border-bottom-color: var(--anchor)
 }
 
+.edit-project-settings {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
+    padding: 7px 11px;
+    border: 1px solid var(--hairline);
+    background: transparent;
+    color: var(--tan-dim);
+    font: 500 .6rem var(--font-mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color .12s ease, border-color .12s ease
+}
+
+.edit-project-settings:hover {
+    color: var(--anchor);
+    border-color: rgba(209, 161, 90, .55)
+}
+
+.edit-project-settings svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round
+}
+
 .intro-copy,
-.section-copy,
-.field-note {
+.section-copy {
     color: var(--tan-dim);
     font-size: .76rem;
     line-height: 1.65;
@@ -191,11 +202,6 @@
 
 .editor-section {
     padding: 27px 32px;
-    border-bottom: 1px solid var(--hairline)
-}
-
-.settings-panel {
-    padding: 25px 32px 27px;
     border-bottom: 1px solid var(--hairline)
 }
 
@@ -222,13 +228,6 @@
     cursor: pointer
 }
 
-.settings-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px 12px
-}
-
-.settings-grid label,
 .modal-controls label {
     display: flex;
     flex-direction: column;
@@ -237,35 +236,6 @@
     font: 400 .58rem var(--font-mono);
     text-transform: uppercase;
     letter-spacing: .1em
-}
-
-.tempo-control {
-    grid-column: 1/-1
-}
-
-.tempo-control div {
-    display: grid;
-    grid-template-columns: 1fr auto auto;
-    align-items: center;
-    gap: 8px
-}
-
-.tempo-control input {
-    accent-color: var(--anchor)
-}
-
-.tempo-control output {
-    font: 500 .9rem var(--font-mono);
-    color: var(--ivory)
-}
-
-.tempo-control small {
-    font: .55rem var(--font-mono)
-}
-
-.field-note {
-    margin-top: 13px;
-    font-style: italic
 }
 
 .table-head {
@@ -438,11 +408,15 @@
 }
 
 @media(max-width:650px) {
-    .settings-grid {
-        grid-template-columns: 1fr
-    }
-
     .chord-row {
         grid-template-columns: 1fr 48px 28px
+    }
+
+    .project-title-row {
+        flex-wrap: wrap
+    }
+
+    .edit-project-settings span {
+        display: none
     }
 }

@@ -1,6 +1,8 @@
-/* Right-side sheet music surface: page header, particle stage, VexFlow SVG
-   layer, progress rail, and zoom readout. Owns everything inside
-   <main class="sheet-music-pane"> except transport and coach. */
+/* Right-side sheet music surface: page header (title only), particle stage
+   with corner zoom control, VexFlow SVG layer, progress rail, and a shared
+   transport row that hosts play/stop plus temporary tempo/clef overrides on
+   the right. Owns everything inside <main class="sheet-music-pane"> except
+   the coach panel. */
 
 .sheet-music-pane {
     min-width: 0;
@@ -12,6 +14,7 @@
     display: flex;
     justify-content: space-between;
     align-items: end;
+    gap: 24px;
     padding-bottom: 24px;
     border-bottom: 1px solid var(--hairline)
 }
@@ -21,40 +24,129 @@
     margin: 7px 0 0
 }
 
-.sheet-music-meta {
-    display: flex;
-    gap: 16px;
-    color: var(--tan-dim);
-    font: 400 .56rem var(--font-mono);
-    text-transform: uppercase;
-    letter-spacing: .08em
-}
-
-.sheet-music-meta span {
+/* Transport row: play/stop + status on the left, tempo/clef overrides pinned
+   to the right. `.transport` inside `#transport-mount` becomes a direct flex
+   child via `display: contents`, so the two lay out on one line and share the
+   row's padding/border. */
+.transport-row {
     display: flex;
     align-items: center;
-    gap: 6px
+    gap: 24px;
+    padding: 12px 0 34px;
+    border-bottom: 1px solid var(--hairline)
 }
 
-.sheet-music-meta i {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--ivory)
+.transport-row > #transport-mount {
+    display: contents
 }
 
-.sheet-music-meta .technique-dot {
-    background: var(--anchor)
+.sheet-music-controls {
+    display: flex;
+    gap: 22px;
+    align-items: center;
+    margin-left: auto
 }
 
-.sheet-music-zoom {
+.sheet-music-controls label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--tan-dim);
+    font: 500 .55rem var(--font-mono);
+    letter-spacing: .1em;
+    text-transform: uppercase
+}
+
+.sheet-music-controls .tempo-control input[type="range"] {
+    width: 200px;
+    accent-color: var(--anchor)
+}
+
+.sheet-music-controls .tempo-value {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px
+}
+
+.sheet-music-controls .tempo-control input[type="number"] {
+    width: 58px;
+    padding: 4px 6px;
+    background: transparent;
     border: 1px solid var(--hairline);
-    padding: 5px 7px;
-    min-width: 122px;
+    color: var(--ivory);
+    font: 500 .68rem var(--font-mono);
+    text-align: center
+}
+
+.sheet-music-controls .tempo-control input[type="number"]:focus {
+    outline: none;
+    border-color: var(--anchor)
+}
+
+.sheet-music-controls .tempo-control small {
+    color: var(--tan-dim);
+    font: 400 .52rem var(--font-mono);
+    letter-spacing: .1em;
+    text-transform: uppercase
+}
+
+.sheet-music-controls .clef-control select {
+    padding: 5px 8px;
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--ivory);
+    font: 500 .68rem var(--font-mono);
+    letter-spacing: .04em;
+    cursor: pointer
+}
+
+.sheet-music-controls .clef-control select:focus {
+    outline: none;
+    border-color: var(--anchor)
+}
+
+.sheet-music-zoom-control {
+    position: absolute;
+    z-index: 6;
+    top: 12px;
+    right: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--hairline);
+    background: rgba(23, 18, 14, .55);
+    backdrop-filter: blur(4px)
+}
+
+.sheet-music-zoom-control button {
+    width: 24px;
+    height: 24px;
+    border: 0;
+    background: transparent;
+    color: var(--tan);
+    font: 500 .82rem var(--font-mono);
+    line-height: 1;
+    cursor: pointer;
+    transition: color .18s, background .18s
+}
+
+.sheet-music-zoom-control button:hover:not(:disabled) {
+    color: var(--ivory);
+    background: rgba(209, 161, 90, .12)
+}
+
+.sheet-music-zoom-control button:disabled {
+    opacity: .35;
+    cursor: not-allowed
+}
+
+.sheet-music-zoom-control output {
+    min-width: 46px;
     text-align: center;
     color: var(--tan);
-    font: 400 .52rem var(--font-mono);
-    letter-spacing: .04em;
+    font: 500 .56rem var(--font-mono);
+    letter-spacing: .06em;
     text-transform: uppercase
 }
 
@@ -181,45 +273,6 @@
     opacity: .82
 }
 
-.sheet-music-stage-meta {
-    position: absolute;
-    z-index: 6;
-    top: 15px;
-    left: 18px;
-    right: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    pointer-events: none;
-    color: rgba(196, 167, 126, .46);
-    font: 500 .52rem var(--font-mono);
-    letter-spacing: .15em;
-    text-transform: uppercase
-}
-
-.sheet-music-stage-meta span:first-child::before {
-    content: "";
-    display: inline-block;
-    width: 18px;
-    height: 1px;
-    margin: 0 8px 3px 0;
-    background: rgba(209, 161, 90, .54)
-}
-
-#sheet-music-fx-state {
-    color: rgba(230, 206, 170, .48);
-    letter-spacing: .1em;
-    transition: color .25s
-}
-
-.notation-stage.is-particle-playing #sheet-music-fx-state {
-    color: rgba(209, 161, 90, .88)
-}
-
-.notation-stage.is-particle-paused #sheet-music-fx-state {
-    color: rgba(230, 206, 170, .76)
-}
-
 .sheet-music-progress-rail {
     position: absolute;
     z-index: 6;
@@ -299,9 +352,18 @@
         display: block
     }
 
-    .sheet-music-meta {
-        margin-top: 15px;
+    .transport-row {
+        flex-wrap: wrap;
+        gap: 14px
+    }
+
+    .sheet-music-controls {
+        margin-left: 0;
         flex-wrap: wrap
+    }
+
+    .sheet-music-controls .tempo-control input[type="range"] {
+        width: 140px
     }
 
     .notation-stage {
@@ -309,8 +371,8 @@
         padding-top: 48px
     }
 
-    .sheet-music-stage-meta {
-        left: 13px;
-        right: 13px
+    .sheet-music-zoom-control {
+        top: 8px;
+        right: 8px
     }
 }

@@ -1,16 +1,41 @@
-// Key signatures alter only their named natural scale degrees. They never
-// perform a uniform transposition of all material.
-const SHARP_ORDER = [5, 0, 7, 2, 9, 4, 11]; // F C G D A E B
-const FLAT_ORDER = [11, 4, 9, 2, 7, 0, 5]; // B E A D G C F
+// Key signatures are notation-only: they never change the MIDI notes stored
+// on a chord. Their sole job is spelling — driving whether a pitch is drawn
+// as (say) F♯ or G♭ — and deciding which explicit accidentals VexFlow must
+// print so the notated pitch matches the sounding pitch.
+//
+// Actual transposition (rewriting chord.notes into a new key) is a separate
+// feature; it does not belong here.
 
-function pitchClass(midi) {
-  return ((midi % 12) + 12) % 12;
+const SHARP_LETTERS = ['f', 'c', 'g', 'd', 'a', 'e', 'b'];
+const FLAT_LETTERS = ['b', 'e', 'a', 'd', 'g', 'c', 'f'];
+
+/**
+ * Which accidental the key signature imposes on a given letter, or '' if
+ * the letter is left natural. `letter` is a lowercase 'a'..'g'.
+ */
+function keySignatureAccidental(letter, key) {
+  if (key > 0 && SHARP_LETTERS.slice(0, key).includes(letter)) return '#';
+  if (key < 0 && FLAT_LETTERS.slice(0, Math.abs(key)).includes(letter)) return 'b';
+  return '';
 }
 
-export function applyKeySignature(notes, key) {
-  const affectedNaturals = key > 0
-    ? new Set(SHARP_ORDER.slice(0, key))
-    : new Set(FLAT_ORDER.slice(0, Math.abs(key)));
-  const adjustment = Math.sign(key);
-  return notes.map((midi) => affectedNaturals.has(pitchClass(midi)) ? midi + adjustment : midi);
+/**
+ * Given a VexFlow key string ('f#/4', 'bb/3', 'c/4', 'f##/4', …) and the
+ * current key signature (-7..+7), return the accidental modifier that must be
+ * drawn on that note so it reads as the intended pitch — or '' when the key
+ * signature already covers it.
+ *
+ *   - '#' / 'b' / '##' / 'bb' : the note's spelling differs from the key sig.
+ *   - 'n'                     : the note is natural but the key sig would
+ *                               sharpen or flatten its letter, so a natural
+ *                               sign is needed.
+ *   - ''                      : the note's spelling matches the key sig.
+ */
+export function accidentalFor(vexKeyString, key) {
+  const spelling = vexKeyString.split('/')[0];
+  const letter = spelling[0];
+  const actual = spelling.slice(1);
+  const expected = keySignatureAccidental(letter, key);
+  if (actual === expected) return '';
+  return actual === '' ? 'n' : actual;
 }

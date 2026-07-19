@@ -10,7 +10,8 @@
  * (the accent color). Ties are drawn between adjacent segments that share a
  * `sourceId` (see rhythm.js), even across a barline.
  */
-import { vexKey } from '../util/midi.js';
+import { vexKeyForNote, chordSpellingIdentity } from '../engine/chords.js';
+import { accidentalFor } from '../engine/key-signature.js';
 
 const KEY_SIGNATURES = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
 const DURATIONS = new Map([[4, 'w'], [2, 'h'], [1, 'q'], [0.5, '8'], [0.25, '16']]);
@@ -32,9 +33,14 @@ function styleModifiers(stave, color) {
  * @param {HTMLElement} container
  * @param {Segment[]}   segments   Output of compile().
  * @param {Settings}    settings   For key signature, time signature, and clef.
+ * @param {Chord[]}     [chords]   Origin chords for spelling — used to spell
+ *                                 each user segment's notes per its chord
+ *                                 identity (so G♯ major reads as G♯/B♯/D♯ and
+ *                                 not G♯/C/D♯). Technique-generated segments
+ *                                 fall through to key-based spelling.
  * @returns {{measureCount: number, layout: object[]}} Summary plus staff geometry for the Canvas overlay.
  */
-export function renderNotation(container, segments, settings) {
+export function renderNotation(container, segments, settings, chords = []) {
   const VF = window.Vex?.Flow ?? window.VexFlow;
   container.replaceChildren();
   if (!VF) {
@@ -62,6 +68,8 @@ export function renderNotation(container, segments, settings) {
   const techniqueColor = '#d1a15a';
   const notesBySource = [];
   const layout = [];
+  const identityBySourceId = new Map();
+  chords.forEach((chord) => identityBySourceId.set(chord.id, chordSpellingIdentity(chord)));
 
   for (let measure = 0; measure < measureCount; measure += 1) {
     const column = measure % columns;
@@ -79,13 +87,15 @@ export function renderNotation(container, segments, settings) {
     stave.setStyle({ fillStyle: lineColor, strokeStyle: lineColor }).setContext(context).draw();
     const measureSegments = segments.filter((segment) => segment.measureIndex === measure);
     const staveNotes = measureSegments.map((segment) => {
+      const identity = segment.isTechnique ? null : identityBySourceId.get(segment.sourceId) ?? null;
+      const spelled = segment.notes.map((midi) => vexKeyForNote(midi, identity, settings.key));
       const staveNote = new VF.StaveNote({
         clef,
-        keys: segment.notes.map((midi) => vexKey(midi, settings.key)),
+        keys: spelled,
         duration: DURATIONS.get(segment.durationBeats) ?? 'q',
       });
-      segment.notes.forEach((midi, index) => {
-        const accidental = vexKey(midi, settings.key).split('/')[0].slice(1);
+      spelled.forEach((vex, index) => {
+        const accidental = accidentalFor(vex, settings.key);
         if (accidental) staveNote.addModifier(new VF.Accidental(accidental), index);
       });
       const color = segment.isTechnique ? techniqueColor : userColor;

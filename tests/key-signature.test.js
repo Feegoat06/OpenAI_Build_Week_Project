@@ -1,16 +1,32 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyKeySignature } from '../js/engine/key-signature.js';
+import { accidentalFor } from '../js/engine/key-signature.js';
 
-test('a sharp key moves only its named natural degrees', () => {
-  assert.deepEqual(applyKeySignature([60, 65, 67, 66], 1), [60, 66, 67, 66]);
-  assert.deepEqual(applyKeySignature([60, 65, 67], 2), [61, 66, 67]);
+test('spelling that matches the key signature needs no accidental', () => {
+  // D major: F#, C# are in the signature.
+  assert.equal(accidentalFor('f#/4', 2), '');
+  assert.equal(accidentalFor('c#/4', 2), '');
+  // Bb major: Bb, Eb are in the signature.
+  assert.equal(accidentalFor('bb/3', -2), '');
+  assert.equal(accidentalFor('eb/4', -2), '');
 });
 
-test('a flat key moves only its named natural degrees', () => {
-  assert.deepEqual(applyKeySignature([59, 64, 69, 68], -3), [58, 63, 68, 68]);
+test('a natural letter that the key signature would alter needs a natural sign', () => {
+  // F natural in D major must be explicitly naturalized.
+  assert.equal(accidentalFor('f/4', 2), 'n');
+  // B natural in Bb major.
+  assert.equal(accidentalFor('b/3', -2), 'n');
 });
 
-test('C key leaves material unchanged', () => {
-  assert.deepEqual(applyKeySignature([60, 61, 65, 66], 0), [60, 61, 65, 66]);
+test('a note whose spelled accidental disagrees with the key signature gets that accidental', () => {
+  // C# in C major → explicit #.
+  assert.equal(accidentalFor('c#/4', 0), '#');
+  // Ab in G major (which has F#, no flats) → explicit b.
+  assert.equal(accidentalFor('ab/4', 1), 'b');
+});
+
+test('C major leaves natural notes unmarked', () => {
+  assert.equal(accidentalFor('c/4', 0), '');
+  assert.equal(accidentalFor('f/4', 0), '');
+  assert.equal(accidentalFor('b/3', 0), '');
 });

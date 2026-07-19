@@ -21,10 +21,12 @@
  * the current progression's meter, so no state outside this file has to know
  * we display beats.
  */
-import { QUALITIES, inferChordIdentity, noteName, notesFrom } from '../engine/chords.js';
+import { QUALITIES, inferChordIdentity, noteName, notesFrom, vexKeyForNote, chordToneName } from '../engine/chords.js';
 import { playNote, playChord } from '../audio/playback.js';
 import { beatsToBars, barsToBeats } from '../state.js';
-import { pitchClassOf, octaveOf, spellPitchClass, vexKey } from '../util/midi.js';
+import { pitchClassOf, octaveOf, spellPitchClass } from '../util/midi.js';
+import { accidentalFor } from '../engine/key-signature.js';
+import { installBackdropDismissal } from './dialog.js';
 
 const DIALOG_TEMPLATE = `
 <dialog id="piano-dialog">
@@ -121,7 +123,7 @@ function detect(notes) {
  * matching the sheet music's `resolvedClef` behavior. Accidentals follow the
  * progression's key.
  */
-function renderPreview(container, notes, key) {
+function renderPreview(container, notes, key, identity) {
   const VF = window.Vex?.Flow ?? window.VexFlow;
   container.replaceChildren();
   if (!VF) { container.innerHTML = '<div class="preview-empty">Loading…</div>'; return; }
@@ -141,14 +143,10 @@ function renderPreview(container, notes, key) {
   stave.getModifiers().forEach((m) => m.setStyle({ fillStyle: staffColor, strokeStyle: staffColor }));
   ctx.setStrokeStyle(staffColor); ctx.setFillStyle(staffColor);
   stave.setStyle({ fillStyle: staffColor, strokeStyle: staffColor }).setContext(ctx).draw();
-  const staveNote = new VF.StaveNote({
-    clef,
-    keys: sorted.map((midi) => vexKey(midi, key)),
-    duration: 'w',
-  });
-  sorted.forEach((midi, index) => {
-    // Anything past the letter is an accidental ('#' or 'b'); attach it explicitly.
-    const accidental = vexKey(midi, key).split('/')[0].slice(1);
+  const spelled = sorted.map((midi) => vexKeyForNote(midi, identity, key));
+  const staveNote = new VF.StaveNote({ clef, keys: spelled, duration: 'w' });
+  spelled.forEach((vex, index) => {
+    const accidental = accidentalFor(vex, key);
     if (accidental) staveNote.addModifier(new VF.Accidental(accidental), index);
   });
   staveNote.setStyle({ fillStyle: noteColor, strokeStyle: noteColor });
@@ -255,6 +253,16 @@ export function openPianoModal(dialog, existingChord, onSave, timeSig = { num: 4
    * push the result into the root select + active chip. This is the "second
    * input mode" from DATA-MODEL.md §1.2: notes are truth, the label follows.
    */
+  /**
+   * Spelling identity for chord-aware note names/notation. Rebuilt on every
+   * refresh so the preview follows the current detection, not stale state.
+   * Falls back to null (key-only spelling) when the selection doesn't match a
+   * quality.
+   */
+  function currentIdentity(recognized) {
+    return recognized ? { rootPc, quality } : null;
+  }
+
   function refreshFromSelection() {
     const sorted = [...selected].sort((a, b) => a - b);
     const detected = detect(sorted);
@@ -268,7 +276,10 @@ export function openPianoModal(dialog, existingChord, onSave, timeSig = { num: 4
   }
 
   function updateStatus(sorted, recognized) {
-    const letters = [...new Set(sorted.map((midi) => spellPitchClass(midi, key)))];
+    const identity = currentIdentity(recognized);
+    const letters = identity
+      ? [...new Set(sorted.map((midi) => chordToneName(midi, identity, key).replace(/\d+$/, '')))]
+      : [...new Set(sorted.map((midi) => spellPitchClass(midi, key)))];
     dialog.querySelector('#selected-notes').textContent = letters.length ? letters.join(' · ') : 'No notes selected';
     dialog.querySelector('#voicing-status').textContent = recognized
       ? `${ spellPitchClass(rootPc, key) } ${ QUALITY_LABELS[quality] } pitch classes recognized. Octaves and doublings remain yours.`
@@ -277,6 +288,11 @@ export function openPianoModal(dialog, existingChord, onSave, timeSig = { num: 4
         : 'Toggle any key or click a quality to begin.';
     dialog.querySelector('#modal-save').disabled = sorted.length === 0;
     previewPlay.disabled = sorted.length === 0;
+  }
+
+  function previewIdentity() {
+    const sorted = [...selected].sort((a, b) => a - b);
+    return currentIdentity(!!detect(sorted));
   }
 
   /**
@@ -306,14 +322,14 @@ export function openPianoModal(dialog, existingChord, onSave, timeSig = { num: 4
         refreshFromSelection();
         updateOctaveControls();
         renderKeys();
-        renderPreview(previewSheet, [...selected].sort((a, b) => a - b), key);
+        renderPreview(previewSheet, [...selected].sort((a, b) => a - b), key, previewIdentity());
       };
       keys.append(button);
     }
     keys.scrollLeft = savedScroll;
     refreshFromSelection();
     updateOctaveControls();
-    renderPreview(previewSheet, [...selected].sort((a, b) => a - b), key);
+    renderPreview(previewSheet, [...selected].sort((a, b) => a - b), key, previewIdentity());
   }
 
   /**
@@ -371,6 +387,8 @@ export function openPianoModal(dialog, existingChord, onSave, timeSig = { num: 4
   };
   previewPlay.onclick = (event) => { event.stopPropagation(); playPreview(); };
   dialog.querySelector('#modal-cancel').onclick = () => dialog.close();
+  installBackdropDismissal(dialog, () => dialog.close());
+
   dialog.querySelector('#modal-save').onclick = () => {
     const notes = [...selected].sort((a, b) => a - b);
     if (!notes.length) return;
@@ -391,7 +409,7 @@ export function openPianoModal(dialog, existingChord, onSave, timeSig = { num: 4
   dialog.showModal();
   requestAnimationFrame(() => {
     [...keys.children].find((button) => button.classList.contains('selected'))?.scrollIntoView({ inline: 'center', block: 'nearest' });
-    renderPreview(previewSheet, [...selected].sort((a, b) => a - b), key);
+    renderPreview(previewSheet, [...selected].sort((a, b) => a - b), key, previewIdentity());
   });
 }
 

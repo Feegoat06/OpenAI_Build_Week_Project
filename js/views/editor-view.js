@@ -16,11 +16,11 @@
  */
 import { compile, makeChord, reconcileSeams, beatsToBars, isTechniqueUsable } from '../state.js';
 import { chordDisplayName } from '../engine/chords.js';
-import { applyKeySignature } from '../engine/key-signature.js';
 import { TECHNIQUES } from '../engine/techniques.js';
 import { evaluateAllTechniques } from '../engine/technique-eligibility.js';
-import { playSegments, stopPlayback } from '../audio/playback.js';
+import { playSegments, stopPlayback, pausePlayback, resumePlayback } from '../audio/playback.js';
 import { openPianoModal, populateChordControls } from '../ui/piano-modal.js';
+import { openProjectSettingsModal } from '../ui/project-settings-modal.js';
 import { mountEditorPanel } from '../ui/editor-panel.js';
 import { mountSheetMusicPanel } from '../ui/sheet-music-panel.js';
 import { mountTransport } from '../ui/transport.js';
@@ -39,9 +39,9 @@ const SHELL_TEMPLATE = `
 const AUTOSAVE_DEBOUNCE_MS = 500;
 
 /**
- * @param {{ store: ReturnType<import('../persistence.js').createProjectStore>, pianoDialog: any, exampleProgressionFactory: () => import('../state.js').Progression }} deps
+ * @param {{ store: ReturnType<import('../persistence.js').createProjectStore>, pianoDialog: any, projectSettingsDialog: any }} deps
  */
-export function createEditorView({ store, pianoDialog, exampleProgressionFactory }) {
+export function createEditorView({ store, pianoDialog, projectSettingsDialog }) {
   return {
     async mount(root, params) {
       const project = await store.getProject(params.id);
@@ -58,8 +58,6 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
       let segments = [];
       let editingId = null;
       let selectedSeam = 0;
-      const keySourceNotes = new Map();
-      const keySourceHints = new Map();
 
       // ── DOM shell + panels ──────────────────────────────────────────
       root.insertAdjacentHTML('beforeend', SHELL_TEMPLATE);
@@ -67,30 +65,33 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
 
       const sheetMusic = mountSheetMusicPanel({
         container: shell.querySelector('#sheet-music-pane-mount'),
+        callbacks: {
+          onEffectiveSettingsChange() {
+            // Tempo/clef overrides don't touch progression state, but they do
+            // affect what Play should schedule. Nothing else to do here — the
+            // panel and audio scheduler both re-read effective settings on
+            // demand.
+          },
+        },
       });
 
       const editor = mountEditorPanel({
         container: shell.querySelector('#editor-pane-mount'),
         callbacks: {
-          onTempoInput(tempo) {
-            progression.settings.tempo = tempo;
-            scheduleAutosave();
-          },
-          onTimeSigChange(timeSig) {
-            progression.settings.timeSig = timeSig;
-            resetIneligibleSeams();
-            coach.setEmpty();
-            rerender();
-          },
-          onKeyChange(key) {
-            progression.settings.key = key;
-            applyKeyToMaterial();
-            coach.setEmpty();
-            rerender();
-          },
-          onClefChange(clef) {
-            progression.settings.clef = clef;
-            rerender();
+          onEditProjectSettings() {
+            openProjectSettingsModal(projectSettingsDialog, {
+              mode: 'edit',
+              initial: {
+                name: currentName,
+                settings: {
+                  tempo: progression.settings.tempo,
+                  timeSig: { ...progression.settings.timeSig },
+                  key: progression.settings.key,
+                  clef: progression.settings.clef,
+                },
+              },
+              onSubmit: ({ name, settings }) => applyProjectSettings({ name, settings }),
+            });
           },
           onAddChord() {
             editingId = null;
@@ -135,9 +136,8 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
       const transport = mountTransport({
         container: sheetMusic.transportMount,
         callbacks: {
-          onPlay: handlePlay,
+          onPlayToggle: handlePlayToggle,
           onStop: handleStop,
-          onReset: handleLoadExample,
         },
       });
 
@@ -181,29 +181,37 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
       function replaceChords(nextChords) {
         progression.seams = reconcileSeams(progression.chords, progression.seams, nextChords);
         progression.chords = nextChords;
-        rememberKeySources(nextChords);
         resetIneligibleSeams();
         selectedSeam = Math.min(selectedSeam, Math.max(0, progression.seams.length - 1));
         rerender();
       }
 
-      function rememberKeySources(chords) {
-        chords.forEach((chord) => {
-          if (!keySourceNotes.has(chord.id)) keySourceNotes.set(chord.id, [...chord.notes]);
-          if (!keySourceHints.has(chord.id)) keySourceHints.set(chord.id, chord.hint ? { ...chord.hint } : null);
-        });
-      }
+      function applyProjectSettings({ name, settings }) {
+        const previous = progression.settings;
+        const timeSigChanged = previous.timeSig.num !== settings.timeSig.num || previous.timeSig.den !== settings.timeSig.den;
+        const keyChanged = previous.key !== settings.key;
+        const clefChanged = previous.clef !== settings.clef;
+        const nameChanged = currentName !== name;
 
-      function applyKeyToMaterial() {
-        rememberKeySources(progression.chords);
-        progression.chords.forEach((chord) => {
-          const sourceNotes = keySourceNotes.get(chord.id);
-          chord.notes = applyKeySignature(sourceNotes, progression.settings.key);
-          const changed = chord.notes.some((note, index) => note !== sourceNotes[index]);
-          if (changed) delete chord.hint;
-          else if (keySourceHints.get(chord.id)) chord.hint = { ...keySourceHints.get(chord.id) };
-        });
-        resetIneligibleSeams();
+        currentName = name;
+        progression.settings = {
+          tempo: settings.tempo,
+          timeSig: { ...settings.timeSig },
+          key: settings.key,
+          clef: settings.clef,
+        };
+
+        // Key is spelling only: it never mutates chord.notes. Transposition is
+        // a separate future feature. Time signature can invalidate technique
+        // seam beat-costs, so those still get re-checked here.
+        if (timeSigChanged) resetIneligibleSeams();
+        if (keyChanged || timeSigChanged || clefChanged) coach.setEmpty();
+
+        if (keyChanged || timeSigChanged || clefChanged || nameChanged) {
+          rerender();
+        } else {
+          scheduleAutosave();
+        }
       }
 
       function resetIneligibleSeams() {
@@ -222,15 +230,9 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
           const chord = progression.chords.find((item) => item.id === editingId);
           const { hint: _oldHint, ...withoutHint } = chord;
           Object.assign(chord, withoutHint, input);
-          keySourceNotes.set(chord.id, [...input.notes]);
-          keySourceHints.set(chord.id, input.hint ? { ...input.hint } : null);
-          chord.notes = applyKeySignature(input.notes, progression.settings.key);
           if (!input.hint) delete chord.hint;
         } else {
           const chord = makeChord(input.notes, input.bars, input.hint);
-          keySourceNotes.set(chord.id, [...input.notes]);
-          keySourceHints.set(chord.id, input.hint ? { ...input.hint } : null);
-          chord.notes = applyKeySignature(input.notes, progression.settings.key);
           progression.chords.push(chord);
           if (progression.chords.length > 1) progression.seams.push(null);
         }
@@ -275,21 +277,53 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
       }
 
       // ── Transport ───────────────────────────────────────────────────
-      async function handlePlay() {
+      /** @type {'idle' | 'playing' | 'paused'} */
+      let playbackState = 'idle';
+
+      function setPlaybackState(next) {
+        playbackState = next;
+        if (next === 'playing') transport.setPlayMode('pause');
+        else if (next === 'paused') transport.setPlayMode('resume');
+        else transport.setPlayMode('play');
+      }
+
+      function handlePlayToggle() {
+        if (playbackState === 'playing') {
+          pausePlayback();
+          setPlaybackState('paused');
+          transport.setPulseActive(false);
+          transport.setStatus('Paused');
+          sheetMusic.particles.settle({ preserveProgress: true });
+        } else if (playbackState === 'paused') {
+          resumePlayback();
+          setPlaybackState('playing');
+          transport.setPulseActive(true);
+          transport.setStatus('Playing');
+          sheetMusic.particles.beginPlayback();
+        } else {
+          startPlaybackFromStart();
+        }
+      }
+
+      async function startPlaybackFromStart() {
         transport.setPlayEnabled(false);
         transport.setPulseActive(true);
         transport.setStatus('Loading piano…');
         sheetMusic.particles.beginPlayback();
+        const playbackSettings = sheetMusic.getEffectiveSettings() ?? progression.settings;
         try {
+          setPlaybackState('playing');
+          transport.setPlayEnabled(true);
           await playSegments(
             segments,
-            progression.settings,
+            playbackSettings,
             (measure) => {
               sheetMusic.setActiveMeasure(measure);
               if (measure !== null) transport.setStatus(`Playing measure ${ measure + 1 }`);
             },
             () => {
               sheetMusic.particles.settle();
+              setPlaybackState('idle');
               transport.setPlayEnabled(true);
               transport.setPulseActive(false);
               transport.setStatus('Playback complete');
@@ -298,6 +332,7 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
           );
         } catch (error) {
           sheetMusic.particles.settle({ immediate: true });
+          setPlaybackState('idle');
           transport.setPlayEnabled(true);
           transport.setPulseActive(false);
           transport.setStatus(error.message);
@@ -306,22 +341,14 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
 
       function handleStop() {
         stopPlayback();
-        sheetMusic.particles.settle({ preserveProgress: true });
+        // Full reset: no progress rail, no lingering "paused" glow — Stop
+        // should look identical to the just-loaded state.
+        sheetMusic.particles.settle({ immediate: true });
         sheetMusic.setActiveMeasure(null);
+        setPlaybackState('idle');
         transport.setPlayEnabled(true);
         transport.setPulseActive(false);
         transport.setStatus('Stopped');
-      }
-
-      function handleLoadExample() {
-        progression = exampleProgressionFactory();
-        keySourceNotes.clear();
-        keySourceHints.clear();
-        applyKeyToMaterial();
-        selectedSeam = 0;
-        coach.setEmpty();
-        transport.setStatus('Example loaded');
-        rerender();
       }
 
       // ── Render pipeline ─────────────────────────────────────────────
@@ -329,16 +356,16 @@ export function createEditorView({ store, pianoDialog, exampleProgressionFactory
         stopPlayback();
         sheetMusic.particles.settle({ immediate: true });
         sheetMusic.setActiveMeasure(null);
+        setPlaybackState('idle');
         transport.setPlayEnabled(true);
         transport.setPulseActive(false);
         segments = compile(progression);
         editor.render({ progression, selectedSeam, projectName: currentName });
-        sheetMusic.render(segments, progression.settings);
+        sheetMusic.render(segments, progression.settings, progression.chords);
         coach.setContext(coachContextText());
         scheduleAutosave();
       }
 
-      applyKeyToMaterial();
       rerender();
 
       return {

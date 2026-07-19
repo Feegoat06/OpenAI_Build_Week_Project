@@ -13,23 +13,26 @@
  * mount rebuild would slow chord edits down for no gain.
  */
 import { mountPianoModal } from './ui/piano-modal.js';
+import { mountProjectSettingsModal } from './ui/project-settings-modal.js';
 import { createProjectStore } from './persistence.js';
 import { createRouter, makeEditorResumePolicy, parseEditorHash, LANDING_HASH } from './router.js';
 import { createLandingView } from './views/landing-view.js';
 import { createEditorView } from './views/editor-view.js';
-import { makeDefaultProgression } from './data/demo-projects.js';
 
 const appRoot = document.querySelector('#app-root');
 const pianoDialog = mountPianoModal({
   container: document.querySelector('#piano-modal-mount'),
 });
+const projectSettingsDialog = mountProjectSettingsModal({
+  container: document.querySelector('#project-settings-modal-mount'),
+});
 
 const store = createProjectStore();
-const landingView = createLandingView({ store });
+const landingView = createLandingView({ store, projectSettingsDialog });
 const editorView = createEditorView({
   store,
   pianoDialog,
-  exampleProgressionFactory: makeDefaultProgression,
+  projectSettingsDialog,
 });
 
 const router = createRouter({

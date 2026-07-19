@@ -7,16 +7,25 @@
  */
 import { mountLandingPanel } from '../ui/landing-panel.js';
 import { navigate, editorHash } from '../router.js';
+import { openProjectSettingsModal } from '../ui/project-settings-modal.js';
+import { makeProgression, makeSettings } from '../state.js';
 
-export function createLandingView({ store }) {
+export function createLandingView({ store, projectSettingsDialog }) {
   return {
     async mount(root) {
       const panel = mountLandingPanel({
         container: root,
         callbacks: {
-          onNewProject: async () => {
-            const project = await tryStore(() => store.createProject({ name: 'Untitled project' }));
-            if (project) navigate(editorHash(project.id));
+          onNewProject: () => {
+            openProjectSettingsModal(projectSettingsDialog, {
+              mode: 'create',
+              initial: { name: 'Untitled project', settings: makeSettings() },
+              onSubmit: async ({ name, settings }) => {
+                const progression = makeProgression({ settings });
+                const project = await tryStore(() => store.createProject({ name, progression }));
+                if (project) navigate(editorHash(project.id));
+              },
+            });
           },
           onImport: async (text) => {
             panel.hideNotice();

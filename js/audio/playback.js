@@ -8,22 +8,27 @@
  *   - `playNote` / `playChord` fire single events NOW. Used by the piano modal
  *     for click-to-preview (per-key audio + the preview panel's play button).
  *
+ * Playback state is tracked at the transport level so `pausePlayback` /
+ * `resumePlayback` can freeze position without tearing down the schedule.
+ * The visual progress tick reads `Tone.Transport.seconds`, so it naturally
+ * freezes with the audio when paused.
+ *
  * All modes share one lazily-built Salamander piano sampler so the samples
  * only download once per session. The sampler must be created and
  * `Tone.start()` must have been called in response to a user gesture (the
  * browser's audio-context policy) — hence the `await ready()` on every entry.
  */
 let sampler;
-let stopTimers = [];
 let progressFrame = 0;
 let playbackGeneration = 0;
+let currentTick = null;
 
 /**
  * Stop and clear the shared progression timeline.
  *
- * UI timers only control highlights; scheduled Tone events live on their own
- * audio clock. Clearing the Transport is therefore required to prevent notes
- * that have not started yet from sounding after the user presses Stop.
+ * Scheduled Tone events live on their own audio clock. Clearing the Transport
+ * is required to prevent notes that have not started yet from sounding after
+ * the user presses Stop.
  */
 function cancelTransport() {
   const transport = typeof window !== 'undefined' ? window.Tone?.Transport : null;
@@ -38,7 +43,8 @@ function releaseSamplerImmediately() {
   const previousRelease = sampler.release;
   try {
     // The normal one-second piano release is musical during playback but is
-    // perceived as audio lag when Stop is expected to freeze the sheet music now.
+    // perceived as audio lag when Stop/Pause is expected to freeze the sheet
+    // music now.
     sampler.release = 0.015;
     sampler.releaseAll(window.Tone.now());
   } finally {
@@ -93,7 +99,7 @@ export function coalesceTiedSegments(segments, measureLength) {
  * @param {(measureIndex: number | null) => void} onMeasure  Fires when the active measure changes; called with `null` when playback ends.
  * @param {() => void} [onStop]     Fires once after the final segment stops sounding.
  * @param {(progress: number, measureIndex: number | null) => void} [onProgress]
- *        Frame-level progress locked to the same scheduled audio timeline.
+ *        Frame-level progress driven off Tone.Transport.seconds so pause/resume freezes it.
  *
  * Cancels any in-flight schedule before starting the new one so overlapping
  * `Play` clicks don't stack.
@@ -107,15 +113,14 @@ export async function playSegments(segments, settings, onMeasure, onStop, onProg
   if (generation !== playbackGeneration) return;
   const secondsPerBeat = 60 / settings.tempo;
   const measureLength = settings.timeSig.num * 4 / settings.timeSig.den;
-  const leadIn = 0.08;
-  const now = Tone.now() + leadIn;
   const transport = Tone.Transport;
+  transport.stop();
+  transport.cancel(0);
+  transport.seconds = 0;
   let end = 0;
   let lastMeasure = -1;
   for (const event of coalesceTiedSegments(segments, measureLength)) {
     const at = event.startBeat * secondsPerBeat;
-    // Schedule through Transport instead of directly on Web Audio. Stop can
-    // now cancel future attacks rather than only hiding their visual timers.
     transport.schedule((time) => {
       if (generation !== playbackGeneration) return;
       instrument.triggerAttackRelease(
@@ -126,42 +131,73 @@ export async function playSegments(segments, settings, onMeasure, onStop, onProg
     }, at);
     end = Math.max(end, at + event.durationBeats * secondsPerBeat);
     if (event.measureIndex !== lastMeasure) {
-      stopTimers.push(setTimeout(() => {
-        // A timeout may already be queued when Stop is clicked. The generation
-        // guard prevents that stale callback from restoring a visual measure.
-        if (generation === playbackGeneration) onMeasure(event.measureIndex);
-      }, (leadIn + at) * 1000));
+      const measureIndex = event.measureIndex;
+      transport.schedule(() => {
+        if (generation !== playbackGeneration) return;
+        onMeasure(measureIndex);
+      }, at);
       lastMeasure = event.measureIndex;
     }
   }
-  transport.start(now, 0);
   const measureCount = Math.max(1, Math.ceil(end / (measureLength * secondsPerBeat)));
-  const visualStart = performance.now() + leadIn * 1000;
-  const tickProgress = (timestamp) => {
+  transport.scheduleOnce(() => {
     if (generation !== playbackGeneration) return;
-    const elapsed = Math.max(0, (timestamp - visualStart) / 1000);
+    cancelAnimationFrame(progressFrame);
+    progressFrame = 0;
+    currentTick = null;
+    cancelTransport();
+    onProgress?.(1, null);
+    onMeasure(null);
+    onStop?.();
+  }, end + 0.1);
+  const tickProgress = () => {
+    if (generation !== playbackGeneration) return;
+    const elapsed = Math.max(0, transport.seconds);
     const normalized = end ? Math.min(1, elapsed / end) : 1;
     const measure = normalized < 1 ? Math.min(measureCount - 1, Math.floor(elapsed / (measureLength * secondsPerBeat))) : null;
     onProgress?.(normalized, measure);
     if (normalized < 1) progressFrame = requestAnimationFrame(tickProgress);
   };
+  currentTick = tickProgress;
   onProgress?.(0, 0);
+  const leadIn = 0.08;
+  transport.start(`+${ leadIn }`, 0);
   progressFrame = requestAnimationFrame(tickProgress);
-  stopTimers.push(setTimeout(() => {
-    if (generation !== playbackGeneration) return;
-    cancelAnimationFrame(progressFrame);
-    progressFrame = 0;
-    cancelTransport();
-    onProgress?.(1, null);
-    onMeasure(null);
-    onStop?.();
-  }, (leadIn + end + 0.1) * 1000));
+}
+
+/**
+ * Freeze the transport at its current position. Currently sounding notes are
+ * released with a fast tail; scheduled future notes remain queued so
+ * resumePlayback picks up where pause left off. Returns true if a paused
+ * schedule is now live.
+ */
+export function pausePlayback() {
+  if (!currentTick) return false;
+  const transport = typeof window !== 'undefined' ? window.Tone?.Transport : null;
+  if (!transport) return false;
+  transport.pause();
+  cancelAnimationFrame(progressFrame);
+  progressFrame = 0;
+  releaseSamplerImmediately();
+  return true;
+}
+
+/**
+ * Resume from the last pause. No-op if playback was never paused or was
+ * fully stopped in between.
+ */
+export function resumePlayback() {
+  if (!currentTick) return false;
+  const transport = typeof window !== 'undefined' ? window.Tone?.Transport : null;
+  if (!transport) return false;
+  transport.start();
+  progressFrame = requestAnimationFrame(currentTick);
+  return true;
 }
 
 export function stopPlayback() {
   playbackGeneration += 1;
-  stopTimers.forEach(clearTimeout);
-  stopTimers = [];
+  currentTick = null;
   cancelAnimationFrame(progressFrame);
   progressFrame = 0;
   // Cancel future notes first, then silence the voice that is already active.

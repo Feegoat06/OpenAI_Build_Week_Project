@@ -1,0 +1,280 @@
+/* Project settings modal — reuses the shared .dialog-shell / .dialog-header /
+   .dialog-footer chrome from piano-modal.css. Only layout specific to this
+   modal lives here. */
+
+/* Override the shared `dialog { width: min(1180px, 94vw) }` from piano-modal.css
+   so this dialog sizes to its content instead of stretching wide (which caused
+   the visual off-center). Native <dialog> centers via `margin: auto` on both
+   axes when `showModal()` runs. */
+#project-settings-dialog {
+    width: auto;
+    max-width: min(620px, calc(100vw - 48px));
+    max-height: calc(100vh - 32px);
+    overflow: hidden;
+}
+
+.project-settings-shell {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.project-settings-body {
+    display: grid;
+    gap: 22px;
+}
+
+.project-settings-name {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    color: var(--tan-dim);
+    font: 400 .58rem var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+}
+
+.project-settings-name input {
+    padding: 10px 12px;
+    border: 1px solid var(--hairline);
+    background: rgba(23, 18, 14, .65);
+    color: var(--ivory);
+    font: 500 .95rem var(--font-display);
+    letter-spacing: -.005em;
+    outline: none;
+    transition: border-color .12s ease;
+}
+
+.project-settings-name input:hover {
+    border-color: rgba(209, 161, 90, .35);
+}
+
+.project-settings-name input:focus {
+    border-color: var(--anchor);
+}
+
+.project-settings-shell .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px 12px;
+}
+
+.project-settings-shell .settings-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    color: var(--tan-dim);
+    font: 400 .58rem var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+}
+
+.project-settings-shell .settings-grid select {
+    padding: 8px 10px;
+    border: 1px solid var(--hairline);
+    background: rgba(23, 18, 14, .65);
+    color: var(--ivory);
+    font: 400 .8rem var(--font-mono);
+}
+
+.tempo-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tempo-input-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--hairline);
+    background: rgba(23, 18, 14, .65);
+    color: var(--ivory);
+    font: 500 .85rem var(--font-mono);
+    outline: none;
+    transition: border-color .12s ease;
+}
+
+.tempo-input-row input:hover {
+    border-color: rgba(209, 161, 90, .35);
+}
+
+.tempo-input-row input:focus {
+    border-color: var(--anchor);
+}
+
+.tempo-input-row small {
+    font: .55rem var(--font-mono);
+    color: var(--tan-dim);
+}
+
+/* Key signature — dial */
+.key-signature-fieldset {
+    border: 1px solid var(--hairline);
+    padding: 18px 20px 20px;
+    margin: 0;
+    display: grid;
+    gap: 14px;
+}
+
+.key-signature-fieldset legend {
+    padding: 0 8px;
+    color: var(--tan-dim);
+    font: 400 .58rem var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+}
+
+.key-dial-container {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 20px;
+}
+
+.key-dial {
+    width: 260px;
+    height: 260px;
+    max-width: 100%;
+}
+
+.key-dial-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.key-wedge {
+    fill: rgba(23, 18, 14, .55);
+    stroke: var(--hairline);
+    stroke-width: 1;
+    cursor: pointer;
+    transition: fill .12s ease, stroke .12s ease;
+    outline: none;
+}
+
+.key-wedge:hover {
+    fill: rgba(209, 161, 90, .12);
+    stroke: rgba(209, 161, 90, .55);
+}
+
+.key-wedge:focus-visible {
+    stroke: var(--anchor);
+    stroke-width: 2;
+}
+
+.key-wedge.is-active {
+    fill: rgba(209, 161, 90, .22);
+    stroke: var(--anchor);
+    stroke-width: 1.5;
+}
+
+.key-wedge-major {
+    font: 500 .82rem var(--font-mono);
+    fill: var(--ivory);
+    pointer-events: none;
+    user-select: none;
+}
+
+.key-wedge-minor {
+    font: 400 .62rem var(--font-mono);
+    fill: var(--tan-dim);
+    pointer-events: none;
+    user-select: none;
+}
+
+.key-wedge.is-active + .key-wedge-major,
+.key-wedge.is-active ~ .key-wedge-major {
+    /* text nodes are siblings of paths in draw order; leave defaults */
+}
+
+.key-dial-ring {
+    stroke: var(--hairline);
+    stroke-width: 1;
+    pointer-events: none;
+}
+
+.key-dial-readout {
+    display: grid;
+    gap: 4px;
+    align-self: center;
+}
+
+.key-dial-readout .kicker {
+    margin: 0;
+}
+
+.key-dial-readout strong {
+    color: var(--ivory);
+    font: 500 1rem var(--font-display);
+    letter-spacing: -.005em;
+}
+
+.key-dial-readout small {
+    color: var(--tan-dim);
+    font: 400 .68rem var(--font-mono);
+}
+
+.key-enharmonics {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.key-enharmonics-label {
+    color: var(--tan-dim);
+    font: 400 .58rem var(--font-mono);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+}
+
+.key-enharmonic-chip {
+    padding: 5px 10px;
+    border: 1px solid var(--hairline);
+    background: rgba(23, 18, 14, .65);
+    color: var(--tan);
+    font: 500 .6rem var(--font-mono);
+    letter-spacing: .04em;
+    cursor: pointer;
+    transition: color .12s ease, border-color .12s ease, background .12s ease;
+}
+
+.key-enharmonic-chip:hover {
+    color: var(--ivory);
+    border-color: rgba(209, 161, 90, .55);
+}
+
+.key-enharmonic-chip.is-active {
+    color: var(--anchor);
+    border-color: var(--anchor);
+    background: rgba(209, 161, 90, .12);
+}
+
+.project-settings-shell .field-note {
+    margin: 0;
+    color: var(--tan-dim);
+    font-size: .7rem;
+    line-height: 1.55;
+    font-style: italic;
+}
+
+@media (max-width: 620px) {
+    .project-settings-shell .settings-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .key-dial-container {
+        grid-template-columns: 1fr;
+        justify-items: center;
+    }
+
+    .key-dial {
+        width: 220px;
+        height: 220px;
+    }
+}
