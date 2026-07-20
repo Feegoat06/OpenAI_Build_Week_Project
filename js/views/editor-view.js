@@ -319,19 +319,21 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
       }
 
       function saveChord(input) {
+        let addedChord = null;
         if (editingId) {
           const chord = progression.chords.find((item) => item.id === editingId);
           const { hint: _oldHint, ...withoutHint } = chord;
           Object.assign(chord, withoutHint, input);
           if (!input.hint) delete chord.hint;
         } else {
-          const chord = makeChord(input.notes, input.bars, input.hint);
-          progression.chords.push(chord);
+          addedChord = makeChord(input.notes, input.bars, input.hint);
+          progression.chords.push(addedChord);
           if (progression.chords.length > 1) progression.seams.push(null);
         }
         resetIneligibleSeams();
         editingId = null;
         rerender();
+        if (addedChord) editor.animateAddedChord(addedChord.id);
       }
 
       // ── Transport ───────────────────────────────────────────────────

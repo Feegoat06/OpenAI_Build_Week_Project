@@ -16,6 +16,8 @@ import { majorKeyName, timeSigLabel, tempoLabel } from '../util/labels.js';
 import { icon } from './icons.js';
 
 const CARD_DENSITIES = ['loose', 'compact', 'dense'];
+const UI_MOTION_MS = 340;
+const UI_MOTION_NAME = 'surface-enter';
 
 const TEMPLATE = `
 <header class="brand-block">
@@ -152,8 +154,96 @@ export function mountEditorPanel({ container, callbacks }) {
     row.innerHTML = `<button class="chord-drag-handle" type="button" aria-label="Reorder ${ displayName }" tabindex="-1">${ icon('grip') }</button><button class="chord-main" aria-label="Edit ${ displayName }"><strong class="chord-glyph">${ glyphHtml }</strong><small>${ escapeHtml(notes) }</small></button><label class="chord-beats" aria-label="Beats for ${ displayName }"><span class="chord-beats-display" aria-hidden="true">${ formatBeatDisplay(currentBeats) } <em>${ currentBeats === 1 ? 'beat' : 'beats' }</em></span><select class="chord-beats-select">${ options.map((beats) => `<option value="${ beats }" ${ beats === currentBeats ? 'selected' : '' }>${ formatBeatDisplay(beats) }</option>`).join('') }</select></label><button class="delete-button" aria-label="Delete ${ displayName }">${ icon('trash') }</button>`;
     row.querySelector('.chord-main').onclick = () => callbacks.onEditChord(chord);
     row.querySelector('.chord-beats-select').onchange = (event) => callbacks.onSetChordBeats(chord, Number(event.target.value));
-    row.querySelector('.delete-button').onclick = () => callbacks.onDeleteChord(chord);
+    row.querySelector('.delete-button').onclick = () => deleteChordWithAnimation(row, chord);
     return row;
+  }
+
+  /**
+   * Let a departing chord finish its visual exit before the state update
+   * replaces the progression DOM. This keeps the card from disappearing
+   * abruptly while preserving the existing single rerender state flow.
+   */
+  function deleteChordWithAnimation(row, chord) {
+    if (row.dataset.deleting === 'true') return;
+
+    if (prefersReducedMotion()) {
+      callbacks.onDeleteChord(chord);
+      return;
+    }
+
+    row.dataset.deleting = 'true';
+    row.querySelectorAll('button, select').forEach((control) => { control.disabled = true; });
+    const adjacentSeams = [row.previousElementSibling, row.nextElementSibling]
+      .filter((element) => element?.classList.contains('transition-seam'));
+    adjacentSeams.forEach((seam) => {
+      seam.classList.add('transition-seam--deleting');
+      seam.querySelectorAll('button, select').forEach((control) => { control.disabled = true; });
+    });
+    const chordRows = [...progressionListEl.querySelectorAll('.chord-row')];
+    const chordIndex = chordRows.indexOf(row);
+    const previousChordId = chordRows[chordIndex - 1]?.dataset.chordId;
+    const nextChordId = chordRows[chordIndex + 1]?.dataset.chordId;
+    if (row.contains(document.activeElement)) document.activeElement.blur();
+
+    runExitAnimation(row, 'chord-row--deleting', () => {
+      callbacks.onDeleteChord(chord);
+      if (previousChordId && nextChordId) animateAddedTransition(previousChordId, nextChordId);
+    });
+  }
+
+  function animateAddedChord(chordId) {
+    const row = [...progressionListEl.querySelectorAll('.chord-row')]
+      .find((item) => item.dataset.chordId === chordId);
+    if (!row) return;
+    runEntryAnimation(row, 'chord-row--entering');
+    animateTransitionEntry(row.previousElementSibling);
+  }
+
+  function animateAddedTransition(fromChordId, toChordId) {
+    const seam = [...progressionListEl.querySelectorAll('.transition-seam')].find((item) => (
+      item.dataset.fromChordId === fromChordId && item.dataset.toChordId === toChordId
+    ));
+    animateTransitionEntry(seam);
+  }
+
+  function animateTransitionEntry(seam) {
+    runEntryAnimation(seam, 'transition-seam--entering');
+  }
+
+  function prefersReducedMotion() {
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function runEntryAnimation(element, className) {
+    if (!element || prefersReducedMotion()) return;
+    requestAnimationFrame(() => {
+      element.classList.add(className);
+      element.addEventListener('animationend', (event) => {
+        if (event.target === element && event.animationName === UI_MOTION_NAME) {
+          element.classList.remove(className);
+        }
+      }, { once: true });
+    });
+  }
+
+  function runExitAnimation(element, className, onComplete) {
+    if (!element || prefersReducedMotion()) {
+      onComplete();
+      return;
+    }
+
+    let complete = false;
+    const finish = () => {
+      if (complete) return;
+      complete = true;
+      window.clearTimeout(fallback);
+      onComplete();
+    };
+    const fallback = window.setTimeout(finish, UI_MOTION_MS + 50);
+    element.addEventListener('animationend', (event) => {
+      if (event.target === element && event.animationName === UI_MOTION_NAME) finish();
+    });
+    element.classList.add(className);
   }
 
   function renderChordGlyph({ root, baseline, marker, suffix, superscript, plain }) {
@@ -199,6 +289,8 @@ export function mountEditorPanel({ container, callbacks }) {
     const isOpen = expandedSeamIndexes.has(index);
     const seam = document.createElement('article');
     seam.className = `transition-seam ${ selectedTechnique ? 'has-technique' : 'is-direct' } ${ selectedSeam === index ? 'selected' : '' } ${ isOpen ? 'is-open' : '' }`;
+    seam.dataset.fromChordId = fromChord.id;
+    seam.dataset.toChordId = toChord.id;
     const toggleLabel = selectedTechnique
       ? `${ escapeHtml(selectedTechnique.name) } · ${ formatBeatCost(selectedTechnique.beatCost) }`
       : `${ icon('plus', 'transition-label-icon') } Add transition`;
@@ -331,6 +423,7 @@ export function mountEditorPanel({ container, callbacks }) {
       renderMetaPills(progression.settings);
       renderProgression(progression, selectedSeam);
     },
+    animateAddedChord,
     unmount() {
       sortable?.destroy();
       projectTitleResizeObserver?.disconnect();

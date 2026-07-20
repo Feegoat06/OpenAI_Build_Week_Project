@@ -454,6 +454,47 @@
     background: var(--panel-4)
 }
 
+/* Cards and seams share one motion. Exit states simply play that same
+   entrance in reverse. */
+.chord-row--entering,
+.transition-seam--entering,
+.chord-row--deleting,
+.transition-seam--deleting {
+    transform-origin: top center;
+}
+
+.chord-row--entering,
+.transition-seam--entering {
+    animation: surface-enter .34s cubic-bezier(.2, .8, .2, 1) both
+}
+
+.chord-row--deleting,
+.transition-seam--deleting {
+    pointer-events: none;
+    animation: surface-enter .34s cubic-bezier(.2, .8, .2, 1) reverse both
+}
+
+@keyframes surface-enter {
+    from {
+        opacity: 0;
+        transform: translateY(-10px) scale(.975)
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1)
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chord-row--entering,
+    .chord-row--deleting,
+    .transition-seam--entering,
+    .transition-seam--deleting {
+        animation: none
+    }
+}
+
 /* Drag handle — sits absolutely in the left gutter over the accent stripe,
    so grabbing it doesn't disturb the card's grid or push the chord content
    in from its natural padding. Icon stays muted until the row is hovered or
