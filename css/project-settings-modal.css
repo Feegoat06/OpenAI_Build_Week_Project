@@ -2,13 +2,12 @@
    .dialog-footer chrome from piano-modal.css. Only layout specific to this
    modal lives here. */
 
-/* Override the shared `dialog { width: min(1180px, 94vw) }` from piano-modal.css
-   so this dialog sizes to its content instead of stretching wide (which caused
-   the visual off-center). Native <dialog> centers via `margin: auto` on both
-   axes when `showModal()` runs. */
+/* This dialog deliberately uses a wide, two-column composition: the score and
+   theme controls form a compact vertical column while the circle of fifths has
+   a panel of its own. */
 #project-settings-dialog {
-    width: auto;
-    max-width: min(620px, calc(100vw - 48px));
+    width: min(1220px, calc(100vw - 32px));
+    max-width: none;
     max-height: calc(100vh - 32px);
     overflow: hidden;
 }
@@ -31,15 +30,38 @@
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 22px;
+    gap: 20px;
     max-height: calc(100vh - 32px);
     overflow-y: auto;
     box-sizing: border-box;
+    padding: 26px 28px;
+}
+
+.project-settings-shell .dialog-header {
+    padding-bottom: 18px;
+}
+
+.project-settings-shell .dialog-header h2 {
+    margin: 0;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-style: normal;
+    font-size: 2.45rem;
+    line-height: 1;
+    letter-spacing: -.045em;
 }
 
 .project-settings-body {
     display: grid;
-    gap: 22px;
+    grid-template-columns: minmax(430px, .92fr) minmax(570px, 1.08fr);
+    align-items: stretch;
+    gap: 26px;
+}
+
+.project-settings-controls {
+    display: grid;
+    align-content: start;
+    gap: 18px;
 }
 
 .project-settings-name {
@@ -74,14 +96,15 @@
 
 .project-settings-shell .settings-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 15px 12px;
+    grid-template-columns: 1fr;
+    gap: 10px;
 }
 
 .project-settings-shell .settings-grid label {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
     color: var(--tan-dim);
     font: 400 var(--fs-label) var(--font-body);
     text-transform: uppercase;
@@ -89,6 +112,7 @@
 }
 
 .project-settings-shell .settings-grid select {
+    width: 100%;
     padding: 8px 10px;
     border: 1px solid var(--hairline);
     background: rgba(23, 18, 14, .65);
@@ -129,11 +153,14 @@
 
 /* Key signature — dial */
 .key-signature-fieldset {
+    position: relative;
     border: 1px solid var(--hairline);
-    padding: 18px 20px 20px;
+    padding: 18px 20px 76px;
     margin: 0;
     display: grid;
-    gap: 14px;
+    align-content: center;
+    gap: 10px;
+    border-radius: var(--radius-cell);
 }
 
 .key-signature-fieldset legend {
@@ -146,14 +173,15 @@
 
 .key-dial-container {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 300px minmax(150px, 1fr);
     align-items: center;
-    gap: 20px;
+    justify-items: start;
+    gap: 16px;
 }
 
 .key-dial {
-    width: 260px;
-    height: 260px;
+    width: 300px;
+    height: 300px;
     max-width: 100%;
 }
 
@@ -219,6 +247,8 @@
     display: grid;
     gap: 4px;
     align-self: center;
+    justify-items: start;
+    text-align: left;
 }
 
 .key-dial-readout .kicker {
@@ -227,55 +257,22 @@
 
 .key-dial-readout strong {
     color: var(--ivory);
-    font: var(--font-chord-weight) 1rem var(--font-chord);
+    font: var(--font-chord-weight) 1.45rem/1.05 var(--font-chord);
     font-style: var(--font-chord-style);
     letter-spacing: -.005em;
 }
 
 .key-dial-readout small {
     color: var(--tan-dim);
-    font: 400 var(--fs-copy) var(--font-body);
-}
-
-.key-enharmonics {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.key-enharmonics-label {
-    color: var(--tan-dim);
-    font: 400 var(--fs-label) var(--font-body);
-    text-transform: uppercase;
-    letter-spacing: .1em;
-}
-
-.key-enharmonic-chip {
-    padding: 5px 10px;
-    border: 1px solid var(--hairline);
-    background: rgba(23, 18, 14, .65);
-    color: var(--tan);
-    font: var(--font-chord-weight) .6rem var(--font-chord);
-    font-style: var(--font-chord-style);
-    letter-spacing: .04em;
-    cursor: pointer;
-    transition: color .12s ease, border-color .12s ease, background .12s ease;
-}
-
-.key-enharmonic-chip:hover {
-    color: var(--ivory);
-    border-color: color-mix(in srgb, var(--accent) 55.0%, transparent);
-}
-
-.key-enharmonic-chip.is-active {
-    color: var(--accent);
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    font: 400 .84rem var(--font-body);
 }
 
 .project-settings-shell .field-note {
     margin: 0;
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    left: 20px;
     color: var(--tan-dim);
     font-size: var(--fs-copy);
     line-height: 1.55;
@@ -289,7 +286,7 @@
     padding: 18px 20px 20px;
     margin: 0;
     display: grid;
-    gap: 16px;
+    gap: 15px;
     border-radius: var(--radius-cell);
 }
 
@@ -323,8 +320,9 @@
 .accent-swatch {
     --swatch-ring: transparent;
     display: grid;
-    gap: 8px;
-    padding: 12px 12px 14px;
+    gap: 7px;
+    min-width: 0;
+    padding: 10px 10px 12px;
     background: var(--panel-3);
     border: 2px solid var(--swatch-ring);
     border-radius: var(--radius-cell);
@@ -340,15 +338,18 @@
 }
 
 .accent-swatch-dot {
-    width: 28px;
-    height: 28px;
+    width: 25px;
+    height: 25px;
     border-radius: 50%;
     display: block;
 }
 
 .accent-swatch-name {
     color: var(--ivory);
-    font: 600 .78rem var(--font-body);
+    font: 600 .72rem var(--font-body);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .accent-swatch-mood {
@@ -356,14 +357,70 @@
     font: 500 var(--fs-label) var(--font-body);
     text-transform: uppercase;
     letter-spacing: .08em;
+    font-size: .55rem;
 }
 
 /* .chord-font-toggle / .chord-font-option styles live in css/base.css so
    the sheet-music panel and this modal share one visual definition. */
 
+/* The footer only contains the primary action now that the temporary-change
+   note has been removed. */
+.project-settings-shell .dialog-footer {
+    position: sticky;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 1;
+    justify-content: flex-end;
+    padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+    background: var(--panel);
+    box-shadow: 0 -12px 20px var(--panel);
+}
+
+@media (max-width: 1140px) {
+    #project-settings-dialog {
+        width: min(680px, calc(100vw - 32px));
+    }
+
+    .project-settings-body {
+        grid-template-columns: 1fr;
+    }
+
+    .key-signature-fieldset {
+        order: 1;
+    }
+
+    .key-dial-container {
+        grid-template-columns: auto 1fr;
+        justify-items: start;
+        gap: 20px;
+    }
+
+    .key-dial-readout {
+        justify-items: start;
+        text-align: left;
+    }
+
+}
+
 @media (max-width: 620px) {
+    #project-settings-dialog {
+        width: calc(100vw - 24px);
+    }
+
+    .project-settings-shell {
+        padding: 22px 18px;
+    }
+
     .project-settings-shell .settings-grid {
-        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+
+    .project-settings-shell .settings-grid label {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+        gap: 7px;
     }
 
     .key-dial-container {
@@ -372,8 +429,14 @@
     }
 
     .key-dial {
-        width: 220px;
-        height: 220px;
+        width: min(300px, 100%);
+        height: auto;
+        aspect-ratio: 1;
+    }
+
+    .key-dial-readout {
+        justify-items: center;
+        text-align: center;
     }
 
     /* 5 swatches wrap to a compact 3+2 grid on narrow screens. */

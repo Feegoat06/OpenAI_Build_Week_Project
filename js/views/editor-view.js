@@ -107,6 +107,10 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
                 },
               },
               onSubmit: ({ name, settings }) => applyProjectSettings({ name, settings }),
+              onAccentPreview: (accent) => applyTheme({
+                ...progression.settings.theme,
+                accent,
+              }),
             });
           },
           onAddChord() {
