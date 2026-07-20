@@ -75,12 +75,13 @@
 }
 
 .project-settings-name input {
-    padding: 10px 12px;
+    padding: 14px 12px 10px;
     border: 1px solid var(--hairline);
     background: var(--panel-3);
     color: var(--ivory);
     font: var(--font-chord-weight) 1.2rem var(--font-chord);
     font-style: var(--font-chord-style);
+    line-height: 1.2;
     outline: none;
     border-radius: var(--radius-cell);
     transition: border-color .12s ease;
@@ -110,6 +111,22 @@
     text-transform: uppercase;
     letter-spacing: .1em;
 }
+
+/* Creation needs two deliberate rows: establish the meter family first,
+   then set the performance details. The dialog keeps its existing width. */
+.project-settings-shell .settings-grid.is-create {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+        "meter-type meter"
+        "tempo clef";
+    column-gap: 18px;
+    row-gap: 10px;
+}
+
+.project-settings-shell .settings-grid.is-create #project-settings-meter-type-field { grid-area: meter-type; }
+.project-settings-shell .settings-grid.is-create #project-settings-meter-field { grid-area: meter; }
+.project-settings-shell .settings-grid.is-create #project-settings-tempo-field { grid-area: tempo; }
+.project-settings-shell .settings-grid.is-create #project-settings-clef-field { grid-area: clef; }
 
 .project-settings-shell .settings-grid select {
     width: 100%;
@@ -153,9 +170,8 @@
 
 /* Key signature — dial */
 .key-signature-fieldset {
-    position: relative;
     border: 1px solid var(--hairline);
-    padding: 18px 20px 76px;
+    padding: 18px 20px 20px;
     margin: 0;
     display: grid;
     align-content: center;
@@ -267,18 +283,6 @@
     font: 400 .84rem var(--font-body);
 }
 
-.project-settings-shell .field-note {
-    margin: 0;
-    position: absolute;
-    right: 20px;
-    bottom: 20px;
-    left: 20px;
-    color: var(--tan-dim);
-    font-size: var(--fs-copy);
-    line-height: 1.55;
-    font-style: italic;
-}
-
 /* Theme fieldset — mood picker (5 accent swatches) + chord-symbol font toggle.
    Shares fieldset chrome with .key-signature-fieldset above. */
 .theme-fieldset {
@@ -363,8 +367,7 @@
 /* .chord-font-toggle / .chord-font-option styles live in css/base.css so
    the sheet-music panel and this modal share one visual definition. */
 
-/* The footer only contains the primary action now that the temporary-change
-   note has been removed. */
+/* Keep the save action visible while longer settings content scrolls. */
 .project-settings-shell .dialog-footer {
     position: sticky;
     right: 0;
@@ -421,6 +424,15 @@
         grid-template-columns: 1fr;
         align-items: stretch;
         gap: 7px;
+    }
+
+    .project-settings-shell .settings-grid.is-create {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "meter-type"
+            "meter"
+            "tempo"
+            "clef";
     }
 
     .key-dial-container {

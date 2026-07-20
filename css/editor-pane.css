@@ -405,16 +405,7 @@
     padding: 0
 }
 
-/* Delete: hidden until the row is hovered/focused. */
-.chord-row .delete-button {
-    opacity: 0;
-    transition: opacity .12s ease
-}
-
-.chord-row:hover .delete-button,
-.chord-row:focus-within .delete-button {
-    opacity: 1
-}
+/* Keep delete controls visible so every chord card exposes its action. */
 
 /* Empty state — no chords yet. Illustrated Tenutino card replacing the old
    one-line dashed placeholder. */

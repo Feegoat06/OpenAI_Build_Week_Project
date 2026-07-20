@@ -88,7 +88,7 @@ const DIALOG_TEMPLATE = `
           <input id="project-settings-name-input" type="text" spellcheck="false" autocomplete="off" maxlength="120" />
         </label>
         <div class="settings-grid">
-          <label><span>Tempo</span>
+          <label id="project-settings-tempo-field"><span>Tempo</span>
             <div class="tempo-input-row">
               <input id="project-settings-tempo" type="number" ${ TEMPO_INPUT_ATTRS } />
               <small>BPM</small>
@@ -103,7 +103,7 @@ const DIALOG_TEMPLATE = `
           <label id="project-settings-meter-field"><span>Time signature</span>
             <select id="project-settings-meter"></select>
           </label>
-          <label><span>Clef</span>
+          <label id="project-settings-clef-field"><span>Clef</span>
             <select id="project-settings-clef">
               <option value="auto">Auto</option>
               <option value="treble">Treble</option>
@@ -133,11 +133,9 @@ const DIALOG_TEMPLATE = `
             <small id="project-settings-key-sub">No accidentals</small>
           </div>
         </div>
-        <p class="field-note">Key signature only changes how the sheet music is spelled; it never alters the actual notes of any chord.</p>
       </fieldset>
     </div>
     <footer class="dialog-footer">
-      <p id="project-settings-hint">Tempo, key signature, and clef can be changed later. Meter is locked after creation.</p>
       <button id="project-settings-submit" class="save-button" type="button">Create ${ icon('arrowRight') }</button>
     </footer>
   </form>
@@ -299,6 +297,7 @@ function renderKeyDial(dialog) {
 export function openProjectSettingsModal(dialog, { mode, initial, onSubmit, onAccentPreview }) {
   const title = dialog.querySelector('#project-settings-title');
   const nameInput = dialog.querySelector('#project-settings-name-input');
+  const settingsGrid = dialog.querySelector('.settings-grid');
   const tempoInput = dialog.querySelector('#project-settings-tempo');
   const meterTypeField = dialog.querySelector('#project-settings-meter-type-field');
   const meterField = dialog.querySelector('#project-settings-meter-field');
@@ -307,7 +306,6 @@ export function openProjectSettingsModal(dialog, { mode, initial, onSubmit, onAc
   const clefSelect = dialog.querySelector('#project-settings-clef');
   const cancelBtn = dialog.querySelector('#project-settings-cancel');
   const submitBtn = dialog.querySelector('#project-settings-submit');
-  const hint = dialog.querySelector('#project-settings-hint');
   const dial = dialog.querySelector('#project-settings-key-dial');
   const keyLabel = dialog.querySelector('#project-settings-key-label');
   const keySubLabel = dialog.querySelector('#project-settings-key-sub');
@@ -315,11 +313,9 @@ export function openProjectSettingsModal(dialog, { mode, initial, onSubmit, onAc
   const chordFontToggle = dialog.querySelector('#project-settings-chord-font-toggle');
 
   const isCreate = mode === 'create';
+  settingsGrid.classList.toggle('is-create', isCreate);
   title.textContent = isCreate ? 'Create New Project' : 'Edit Project Settings';
   submitBtn.innerHTML = isCreate ? `Create ${ icon('arrowRight') }` : `Save ${ icon('arrowRight') }`;
-  hint.textContent = isCreate
-    ? 'Meter is fixed when the project is created. Tempo, key signature, and clef can be changed later.'
-    : 'The meter family is locked, but you can choose another time signature within it. Changes apply immediately; cancel to discard.';
 
   nameInput.value = initial.name ?? '';
   tempoInput.value = String(initial.settings.tempo);
