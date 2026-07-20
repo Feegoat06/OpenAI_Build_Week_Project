@@ -463,9 +463,8 @@ body {
     margin-left: -.02em;
 }
 
-/* Segmented pill toggle — Classical / JazzText. Shared by the sheet-music
-   header and the project-settings modal so both surfaces present the same
-   affordance. Active option inverts on the accent; inactive stays muted. */
+/* Segmented pill toggle — Classical / JazzText. Used by the project-settings
+   modal. Active option inverts on the accent; inactive stays muted. */
 .chord-font-toggle {
     display: inline-flex;
     padding: 3px;

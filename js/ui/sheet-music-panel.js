@@ -1,7 +1,7 @@
 /**
- * Right-side sheet music surface: header (title), VexFlow SVG with a compact
- * corner zoom control, and the transport row (play/stop plus session-only
- * tempo/clef overrides).
+ * Right-side sheet music surface: VexFlow SVG with a compact corner zoom
+ * control, and the transport row (play/stop plus session-only tempo/clef
+ * overrides).
  *
  * Tempo and clef controls here are session-only overrides: they never mutate
  * the project's persistent settings. When the persistent tempo/clef change
@@ -13,23 +13,14 @@
  */
 import { renderNotation } from '../sheet-music/render.js';
 import { createSheetMusicParticles } from '../sheet-music/particles.js';
-import { TEMPO_MIN, TEMPO_MAX, CHORD_FONTS } from '../state.js';
+import { TEMPO_MIN, TEMPO_MAX } from '../state.js';
 import { icon } from './icons.js';
-
-const CHORD_FONT_LABELS = { jazztext: 'JazzText', classical: 'Classical' };
 
 const ZOOM_MIN = 0.7;
 const ZOOM_MAX = 1.5;
 const ZOOM_STEP = 0.1;
 
 const TEMPLATE = `
-<header class="sheet-music-header">
-  <h2 class="section-heading sheet-music-title">Sheet Music</h2>
-  <div id="sheet-music-chord-font-toggle" class="chord-font-toggle" role="radiogroup" aria-label="Chord symbol font">
-    ${ CHORD_FONTS.map((font) => `<button type="button" class="chord-font-option" data-chord-font="${ font }" role="radio" aria-checked="false">${ CHORD_FONT_LABELS[font] }</button>`).join('') }
-  </div>
-</header>
-
 <section class="notation-stage" aria-label="Progression notation">
   <div class="sheet-music-zoom-control" role="group" aria-label="Zoom">
     <button id="sheet-music-zoom-out" type="button" aria-label="Zoom out">${ icon('minus') }</button>
@@ -81,21 +72,6 @@ export function mountSheetMusicPanel({ container, callbacks = {} }) {
   const tempoSliderEl = container.querySelector('#sheet-music-tempo-slider');
   const tempoInputEl = container.querySelector('#sheet-music-tempo-input');
   const clefSelectEl = container.querySelector('#sheet-music-clef');
-  const chordFontToggleEl = container.querySelector('#sheet-music-chord-font-toggle');
-
-  chordFontToggleEl.onclick = (event) => {
-    const btn = event.target.closest('.chord-font-option');
-    if (!btn) return;
-    callbacks.onSetChordFont?.(btn.dataset.chordFont);
-  };
-
-  function syncChordFontToggle(chordFont) {
-    chordFontToggleEl.querySelectorAll('.chord-font-option').forEach((el) => {
-      const active = el.dataset.chordFont === chordFont;
-      el.classList.toggle('is-active', active);
-      el.setAttribute('aria-checked', String(active));
-    });
-  }
 
   let zoom = 1;
   let resizeFrame = 0;
@@ -214,7 +190,6 @@ export function mountSheetMusicPanel({ container, callbacks = {} }) {
       effectiveSettings = computeEffectiveSettings();
       syncTempoInputs(effectiveSettings.tempo);
       clefSelectEl.value = effectiveSettings.clef;
-      syncChordFontToggle(settings.theme.chordFont);
       drawSheetMusic();
     },
     setActiveMeasure(index) {

@@ -73,15 +73,6 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
             // panel and audio scheduler both re-read effective settings on
             // demand.
           },
-          onSetChordFont(chordFont) {
-            // The header toggle is a shortcut into the same code path project
-            // settings uses. applyProjectSettings persists + re-applies the
-            // theme; the panel re-syncs on the next render.
-            applyProjectSettings({
-              name: currentName,
-              settings: { ...progression.settings, theme: { ...progression.settings.theme, chordFont } },
-            });
-          },
         },
       });
 

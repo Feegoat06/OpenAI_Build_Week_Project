@@ -1,8 +1,7 @@
-/* Right-side sheet music surface: page header (title only), particle stage
-   with corner zoom control, VexFlow SVG layer, progress rail, and a shared
-   transport row that hosts play/stop plus temporary tempo/clef overrides on
-   the right. Owns everything inside <main class="sheet-music-pane"> except
-   the coach panel. */
+/* Right-side sheet music surface: particle stage with corner zoom control,
+   VexFlow SVG layer, progress rail, and a shared transport row that hosts
+   play/stop plus temporary tempo/clef overrides on the right. Owns everything
+   inside <main class="sheet-music-pane"> except the coach panel. */
 
 .sheet-music-pane {
     min-width: 0;
@@ -11,29 +10,6 @@
     flex-direction: column;
     padding: 34px clamp(28px, 4vw, 68px) 34px;
     background: radial-gradient(circle at 75% 20%, color-mix(in srgb, var(--accent) 3.5%, transparent), transparent 35%), var(--ink)
-}
-
-.sheet-music-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: end;
-    gap: 24px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid var(--hairline)
-}
-
-.sheet-music-header > .chord-font-toggle {
-    align-self: center
-}
-
-@media(max-width:650px) {
-    .sheet-music-header > .chord-font-toggle {
-        align-self: flex-start
-    }
-}
-
-.sheet-music-title {
-    flex-shrink: 0
 }
 
 /* Transport row: play/stop + status on the left, tempo/clef overrides pinned
@@ -139,7 +115,7 @@
     --sheet-music-progress: 0%;
     flex: 1;
     min-height: 390px;
-    margin: 28px 0 0;
+    margin: 0;
     padding: 64px 0 48px;
     display: flex;
     align-items: center;
@@ -323,10 +299,6 @@
         padding: 30px 24px 30px
     }
 
-    .sheet-music-header {
-        align-items: start
-    }
-
     .notation-stage {
         flex: 0 0 auto;
         min-height: 340px
@@ -334,10 +306,6 @@
 }
 
 @media(max-width:650px) {
-    .sheet-music-header {
-        display: block
-    }
-
     .transport-row {
         flex-wrap: wrap;
         gap: 14px

@@ -333,8 +333,7 @@
     font-size: .55rem;
 }
 
-/* .chord-font-toggle / .chord-font-option styles live in css/base.css so
-   the sheet-music panel and this modal share one visual definition. */
+/* .chord-font-toggle / .chord-font-option styles live in css/base.css. */
 
 /* Keep the save action visible while longer settings content scrolls. */
 .project-settings-shell .dialog-footer {
