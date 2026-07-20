@@ -138,7 +138,7 @@ export function mountEditorPanel({ container, callbacks }) {
     const toggleLabel = selectedTechnique
       ? `${ escapeHtml(selectedTechnique.name) } · ${ formatBeatCost(selectedTechnique.beatCost) }`
       : `${ icon('plus', 'transition-label-icon') } Add transition`;
-    seam.innerHTML = `<div class="transition-connector"><button class="transition-toggle" type="button" aria-expanded="${ isOpen }"><span class="transition-rule" aria-hidden="true"></span><span class="transition-label">${ toggleLabel }</span><span class="transition-rule" aria-hidden="true"></span></button><button class="transition-explain" type="button">Explain</button></div>${ isOpen ? `<div class="transition-editor"><div class="transition-editor-copy"><small>${ budget } beat${ budget === 1 ? '' : 's' } available in the departing tail</small></div><label>Technique <select class="transition-select" aria-label="Technique for ${ fromName } to ${ toName }"></select></label></div>` : '' }`;
+    seam.innerHTML = `<div class="transition-connector"><button class="transition-toggle" type="button" aria-expanded="${ isOpen }"><span class="transition-rule" aria-hidden="true"></span><span class="transition-label">${ toggleLabel }</span><span class="transition-rule" aria-hidden="true"></span></button></div>${ isOpen ? `<div class="transition-editor"><div class="transition-editor-copy"><small>${ budget } beat${ budget === 1 ? '' : 's' } available in the departing tail</small></div><label>Technique <select class="transition-select" aria-label="Technique for ${ fromName } to ${ toName }"></select></label></div>` : '' }`;
     const toggle = seam.querySelector('.transition-toggle');
     toggle.onclick = () => {
       if (isOpen) {
@@ -151,7 +151,6 @@ export function mountEditorPanel({ container, callbacks }) {
       }
       callbacks.onSelectSeam(index);
     };
-    seam.querySelector('.transition-explain').onclick = () => callbacks.onExplainSeam(index);
     const select = seam.querySelector('.transition-select');
     if (select) {
       addTechniqueOptions(select, techniques, fromChord, progression.settings.timeSig, budget);

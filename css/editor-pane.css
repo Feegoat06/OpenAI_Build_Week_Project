@@ -535,17 +535,6 @@
     color: var(--accent)
 }
 
-.transition-explain {
-    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-    background: transparent;
-    color: var(--accent);
-    padding: 5px 10px;
-    border-radius: var(--radius-pill);
-    font: 500 .62rem var(--font-body);
-    letter-spacing: .04em;
-    cursor: pointer
-}
-
 .transition-editor {
     display: grid;
     gap: 11px;

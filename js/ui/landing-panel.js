@@ -4,12 +4,11 @@
  * The single page a user lands on when opening the app (unless the router's
  * time-guarded resume sends them straight back into the editor). Sections:
  *
- *   1. Hero               — brand + tagline; animation slot for later.
- *   2. Actions row        — New project, Import…, Export all.
- *   3. Recent projects    — user's active projects, sorted by updatedAt desc.
- *   4. Demo projects      — read from js/data/demo-projects.js; opening one
+ *   1. Actions row        — New project, Import…, Export all.
+ *   2. Recent projects    — user's active projects, sorted by updatedAt desc.
+ *   3. Demo projects      — read from js/data/demo-projects.js; opening one
  *                            clones it into localStorage as a new project.
- *   5. Trash              — collapsible; Restore / Delete permanently.
+ *   4. Trash              — collapsible; Restore / Delete permanently.
  *
  * DOM lives here. The view module wires callbacks up to the store.
  */
@@ -25,12 +24,6 @@ const TEMPLATE = `
     </div>
     <span class="landing-tagline"><a class="landing-github-link" href="https://github.com/Feegoat06/OpenAI_Build_Week_Project" target="_blank" rel="noopener noreferrer" aria-label="Open the LEGATO GitHub repository">${ icon('github') }</a><span>Created with ♥ and ♫ from Fee, Louie, and Eric</span></span>
   </header>
-
-  <section class="landing-hero">
-    <p class="kicker">Progression coach</p>
-    <h1>Build the space<br><em>between chords.</em></h1>
-    <p class="landing-lede">Pick up a demo, open a recent project, or start something new. Everything is saved to this browser and can be exported at any time.</p>
-  </section>
 
   <div class="landing-scroll">
     <div id="landing-notice" class="landing-notice" hidden></div>

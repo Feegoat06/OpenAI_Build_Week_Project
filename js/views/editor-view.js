@@ -15,8 +15,6 @@
  * ProjectStore so localStorage stays in sync without a manual save button.
  */
 import { compile, makeChord, makeTheme, reconcileSeams, beatsToBars, isTechniqueUsable } from '../state.js';
-import { chordDisplayName } from '../engine/chords.js';
-import { TECHNIQUES } from '../engine/techniques.js';
 import { evaluateAllTechniques } from '../engine/technique-eligibility.js';
 import { playSegments, stopPlayback, pausePlayback, resumePlayback } from '../audio/playback.js';
 import { openPianoModal, populateChordControls } from '../ui/piano-modal.js';
@@ -24,9 +22,6 @@ import { openProjectSettingsModal } from '../ui/project-settings-modal.js';
 import { mountEditorPanel } from '../ui/editor-panel.js';
 import { mountSheetMusicPanel } from '../ui/sheet-music-panel.js';
 import { mountTransport } from '../ui/transport.js';
-import { mountCoachPanel } from '../ui/coach-panel.js';
-import { buildCoachEvidence } from '../coach/evidence.js';
-import { requestCoach } from '../coach/coach.js';
 import { applyTheme, clearTheme } from '../theme.js';
 import { navigate, LANDING_HASH } from '../router.js';
 
@@ -133,15 +128,12 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
           onSelectSeam(index) {
             selectedSeam = index;
             editor.render({ progression, selectedSeam, projectName: currentName });
-            coach.setContext(coachContextText());
           },
           onSetSeamTechnique(index, techniqueId) {
             progression.seams[index] = techniqueId;
             selectedSeam = index;
-            coach.setEmpty();
             rerender();
           },
-          onExplainSeam(index) { explainSeam(index); },
           onGoHome() {
             navigate(LANDING_HASH);
           },
@@ -159,13 +151,6 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
         callbacks: {
           onPlayToggle: handlePlayToggle,
           onStop: handleStop,
-        },
-      });
-
-      const coach = mountCoachPanel({
-        container: sheetMusic.coachMount,
-        callbacks: {
-          onRetry(retryIndex) { explainSeam(retryIndex); },
         },
       });
 
@@ -231,7 +216,6 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
         // a separate future feature. Time signature can invalidate technique
         // seam beat-costs, so those still get re-checked here.
         if (timeSigChanged) resetIneligibleSeams();
-        if (keyChanged || timeSigChanged || clefChanged) coach.setEmpty();
 
         // Theme flips need a rerender so the chord-font toggle syncs its
         // active pill and the meta pills re-read the accent-derived colors.
@@ -268,42 +252,7 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
         }
         resetIneligibleSeams();
         editingId = null;
-        coach.setEmpty();
         rerender();
-      }
-
-      // ── Coach flow ──────────────────────────────────────────────────
-      function coachContextText() {
-        if (!progression.seams.length) return 'Add two chords to create a seam that LEGATO can explain.';
-        const from = chordDisplayName(progression.chords[selectedSeam], progression.settings.key);
-        const to = chordDisplayName(progression.chords[selectedSeam + 1], progression.settings.key);
-        const technique = progression.seams[selectedSeam] ? TECHNIQUES[progression.seams[selectedSeam]].name : 'Direct transition';
-        return `${ from } → ${ to } · ${ technique }`;
-      }
-
-      async function explainSeam(index) {
-        selectedSeam = index;
-        editor.render({ progression, selectedSeam, projectName: currentName });
-        coach.setContext(coachContextText());
-        const techniqueId = progression.seams[index];
-        const payload = {
-          fromChord: { name: chordDisplayName(progression.chords[index], progression.settings.key), notes: progression.chords[index].notes },
-          toChord: { name: chordDisplayName(progression.chords[index + 1], progression.settings.key), notes: progression.chords[index + 1].notes },
-          technique: techniqueId ? { id: techniqueId, ...TECHNIQUES[techniqueId] } : 'none',
-          generatedNotes: segments.filter((segment) => segment.seamIndex === index).flatMap((segment) => segment.notes),
-          evidence: buildCoachEvidence(progression, segments, index),
-        };
-        coach.setLoading();
-        try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 20000);
-          const result = await requestCoach(payload, { signal: controller.signal });
-          clearTimeout(timer);
-          coach.setResult(result);
-        } catch (error) {
-          const message = error.name === 'AbortError' ? 'The coach took too long to respond.' : error.message;
-          coach.setError(message, index);
-        }
       }
 
       // ── Transport ───────────────────────────────────────────────────
@@ -379,7 +328,6 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
         segments = compile(progression);
         editor.render({ progression, selectedSeam, projectName: currentName });
         sheetMusic.render(segments, progression.settings, progression.chords);
-        coach.setContext(coachContextText());
         scheduleAutosave();
       }
 

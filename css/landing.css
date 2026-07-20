@@ -67,38 +67,6 @@
     outline-offset: 3px
 }
 
-.landing-hero {
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 64px 40px 44px;
-    border-bottom: 1px solid var(--hairline)
-}
-
-.landing-hero > * {
-    max-width: 860px
-}
-
-.landing-hero h1 {
-    font: 700 clamp(2.4rem, 4.4vw, 3.8rem)/1 var(--font-body);
-    letter-spacing: -.02em;
-    margin: 14px 0 20px
-}
-
-.landing-hero h1 em {
-    font-weight: 700;
-    font-style: normal;
-    color: var(--accent)
-}
-
-.landing-lede {
-    color: var(--tan-dim);
-    font-size: var(--fs-copy);
-    line-height: 1.65;
-    max-width: 620px;
-    margin: 0
-}
-
 .landing-scroll {
     width: 100%;
     max-width: 1200px;
@@ -560,10 +528,6 @@
 @media (max-width: 700px) {
     .landing-header {
         padding: 20px 24px
-    }
-
-    .landing-hero {
-        padding: 40px 24px 32px
     }
 
     .landing-scroll {

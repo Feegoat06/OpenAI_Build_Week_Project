@@ -8,9 +8,8 @@
  * externally (via project settings), the override is cleared so the panel
  * reflects the new source of truth.
  *
- * The transport and coach panels are siblings inside <main class="sheet-
- * music-pane"> — this module mounts them via the exposed `transportMount` /
- * `coachMount` refs so editor-view can wire them separately.
+ * The transport controls are mounted into this panel through the exposed
+ * `transportMount` reference so editor-view can wire them separately.
  */
 import { renderNotation } from '../sheet-music/render.js';
 import { createSheetMusicParticles } from '../sheet-music/particles.js';
@@ -66,7 +65,6 @@ const TEMPLATE = `
     </label>
   </div>
 </div>
-<div id="coach-mount"></div>
 `;
 
 export function mountSheetMusicPanel({ container, callbacks = {} }) {
@@ -204,7 +202,6 @@ export function mountSheetMusicPanel({ container, callbacks = {} }) {
 
   return {
     transportMount: container.querySelector('#transport-mount'),
-    coachMount: container.querySelector('#coach-mount'),
     particles,
     render(segments, settings, chords = []) {
       currentSegments = segments;
