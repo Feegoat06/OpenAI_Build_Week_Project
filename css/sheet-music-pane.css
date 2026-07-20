@@ -8,6 +8,7 @@
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    container-type: inline-size;
     padding: 34px clamp(28px, 4vw, 68px) 34px;
     background: radial-gradient(circle at 75% 20%, color-mix(in srgb, var(--accent) 3.5%, transparent), transparent 35%), var(--ink)
 }
@@ -53,6 +54,15 @@
     /* The toolbar uses a fixed-width slider; the modal lets it stretch. */
     flex: 0 0 auto;
     width: 200px
+}
+
+/* The sheet-music pane can be narrow even on a wide viewport when it shares
+   the app shell with the editor. Keep the precise numeric tempo input, but
+   remove the space-hungry slider before the transport row overflows. */
+@container (max-width: 750px) {
+    .sheet-music-controls .tempo-control input[type="range"] {
+        display: none
+    }
 }
 
 .sheet-music-zoom-control {
@@ -314,10 +324,6 @@
     .sheet-music-controls {
         margin-left: 0;
         flex-wrap: wrap
-    }
-
-    .sheet-music-controls .tempo-control input[type="range"] {
-        width: 170px
     }
 
     .notation-stage {
