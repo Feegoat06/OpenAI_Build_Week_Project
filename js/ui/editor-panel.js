@@ -54,6 +54,33 @@ export function mountEditorPanel({ container, callbacks }) {
   const progressionListEl = container.querySelector('#progression-list');
   const chordsSectionEl = progressionListEl.closest('.editor-section');
   const addChordBtn = container.querySelector('#add-chord');
+
+  // Drag-to-reorder chord cards. SortableJS observes DOM mutations, so the
+  // instance survives the replaceChildren() inside renderProgression().
+  const sortable = window.Sortable?.create(progressionListEl, {
+    handle: '.chord-drag-handle',
+    draggable: '.chord-row',
+    animation: 200,
+    easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+    ghostClass: 'chord-row--drag-ghost',
+    chosenClass: 'chord-row--drag-chosen',
+    dragClass: 'chord-row--drag-active',
+    // Native HTML5 drag ghost is inconsistent across browsers; the fallback
+    // path gives us a real DOM clone we can style.
+    forceFallback: true,
+    fallbackClass: 'chord-row--drag-fallback',
+    onStart() {
+      progressionListEl.classList.add('progression-list--dragging');
+    },
+    onEnd(evt) {
+      progressionListEl.classList.remove('progression-list--dragging');
+      if (evt.oldIndex === evt.newIndex) return;
+      const orderedIds = [...progressionListEl.querySelectorAll('.chord-row')]
+        .map((el) => el.dataset.chordId)
+        .filter(Boolean);
+      callbacks.onReorderChords(orderedIds);
+    },
+  });
   const brandHomeBtn = container.querySelector('#brand-home');
   const viewAllBtn = container.querySelector('#view-all-projects');
   const projectNameInput = container.querySelector('#project-name-input');
@@ -77,6 +104,7 @@ export function mountEditorPanel({ container, callbacks }) {
     const beatChoices = beatChoicesForMeter(timeSig);
     const row = document.createElement('article');
     row.className = 'chord-row';
+    row.dataset.chordId = chord.id;
     const identity = chordSpellingIdentity(chord);
     const notes = chord.notes.map((note) => identity
       ? chordToneName(note, identity, progression.settings.key)
@@ -85,7 +113,7 @@ export function mountEditorPanel({ container, callbacks }) {
     const options = beatChoices.includes(currentBeats) ? beatChoices : [...beatChoices, currentBeats].sort((a, b) => a - b);
     const displayName = escapeHtml(chordDisplayName(chord, progression.settings.key));
     const glyphHtml = renderChordGlyph(formatChordSymbol(chord, progression.settings.key));
-    row.innerHTML = `<button class="chord-main" aria-label="Edit ${ displayName }"><strong class="chord-glyph">${ glyphHtml }</strong><small>${ escapeHtml(notes) }</small></button><label class="chord-beats" aria-label="Beats for ${ displayName }"><span class="chord-beats-display" aria-hidden="true">${ formatBeatDisplay(currentBeats) } <em>${ currentBeats === 1 ? 'beat' : 'beats' }</em></span><select class="chord-beats-select">${ options.map((beats) => `<option value="${ beats }" ${ beats === currentBeats ? 'selected' : '' }>${ formatBeatDisplay(beats) }</option>`).join('') }</select></label><button class="delete-button" aria-label="Delete ${ displayName }">${ icon('trash') }</button>`;
+    row.innerHTML = `<button class="chord-drag-handle" type="button" aria-label="Reorder ${ displayName }" tabindex="-1">${ icon('grip') }</button><button class="chord-main" aria-label="Edit ${ displayName }"><strong class="chord-glyph">${ glyphHtml }</strong><small>${ escapeHtml(notes) }</small></button><label class="chord-beats" aria-label="Beats for ${ displayName }"><span class="chord-beats-display" aria-hidden="true">${ formatBeatDisplay(currentBeats) } <em>${ currentBeats === 1 ? 'beat' : 'beats' }</em></span><select class="chord-beats-select">${ options.map((beats) => `<option value="${ beats }" ${ beats === currentBeats ? 'selected' : '' }>${ formatBeatDisplay(beats) }</option>`).join('') }</select></label><button class="delete-button" aria-label="Delete ${ displayName }">${ icon('trash') }</button>`;
     row.querySelector('.chord-main').onclick = () => callbacks.onEditChord(chord);
     row.querySelector('.chord-beats-select').onchange = (event) => callbacks.onSetChordBeats(chord, Number(event.target.value));
     row.querySelector('.delete-button').onclick = () => callbacks.onDeleteChord(chord);
@@ -243,6 +271,9 @@ export function mountEditorPanel({ container, callbacks }) {
       syncProjectName(projectName);
       renderMetaPills(progression.settings);
       renderProgression(progression, selectedSeam);
+    },
+    unmount() {
+      sortable?.destroy();
     },
   };
 }

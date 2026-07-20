@@ -147,6 +147,7 @@ The first sample must prove the complete core loop with minimal polish. It is no
 - All eight required technique registry entries and compilation behavior.
 - Visible differentiation of user material and generated technique material.
 - A basic current-measure highlight during playback; a simple glow is sufficient.
+- Drag-to-reorder chord cards with animated repositioning (see [`docs/drag-reorder.md`](drag-reorder.md)).
 - An “Explain this transition” action for a selected seam.
 - A server-side `/api/coach.js` endpoint that keeps the OpenAI API key off the client.
 - Loading, empty, error, and retry states for the coach.
@@ -157,7 +158,6 @@ The first sample must prove the complete core loop with minimal polish. It is no
 - Mood-to-progression generation.
 - Free-note chord detection.
 - Multiple projects and JSON import/export.
-- Drag reordering.
 - Ambient particle effects and elaborate animation.
 - Compound-meter notation polish.
 - Additional transition techniques beyond the required registry.

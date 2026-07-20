@@ -107,13 +107,15 @@
     border-color: color-mix(in srgb, var(--accent) 55.0%, transparent)
 }
 
+/* Structural passthrough. The brand-block, project-title-block, and the
+   Chords section title are all fixed; only the progression list inside the
+   Chords section scrolls (see .progression-list). */
 .editor-scroll {
     flex: 1;
     min-height: 0;
-    overflow: auto;
     display: flex;
     flex-direction: column;
-    padding-bottom: 70px
+    overflow: hidden
 }
 
 .editor-scroll--empty {
@@ -262,8 +264,14 @@
     max-width: 430px
 }
 
+/* Chords section owns the remaining panel height. Its title (heading + Add
+   Chord button) stays pinned; only the .progression-list below it scrolls. */
 .editor-section {
-    padding: 24px 26px 26px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 26px 0;
     border-bottom: 1px solid var(--hairline)
 }
 
@@ -277,6 +285,7 @@
 }
 
 .section-title {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -298,8 +307,16 @@
 }
 
 .progression-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
     display: grid;
-    gap: 12px
+    /* Prevent grid from stretching the row tracks to fill the scroll area —
+       otherwise a short list (esp. one card) balloons each row's height. */
+    align-content: start;
+    gap: 12px;
+    padding-bottom: 96px
 }
 
 .editor-section--empty .progression-list {
@@ -309,23 +326,114 @@
 }
 
 /* Chord row card. Accent border-left is the visual seam between the chord's
-   identity and its content — matches the design's 4px accent stripe. */
+   identity and its content — matches the design's 4px accent stripe. The
+   drag handle is absolutely positioned over the left gutter so it doesn't
+   shift the chord content's grid or steal its left padding. */
 .chord-row {
+    position: relative;
     display: grid;
     grid-template-columns: 1fr auto auto;
     align-items: center;
     gap: 16px;
-    padding: 20px 20px 22px;
+    /* Match the vertical breathing room around the chord label and notes. */
+    padding: 20px 20px 20px 44px;
     background: var(--panel-3);
     border: 1px solid transparent;
     border-left: 4px solid var(--accent);
     border-radius: var(--radius-chord);
-    min-height: 92px;
-    transition: border-color .15s ease, background .15s ease
+    /* Keep the bottom padding real rather than letting the row's 92px
+       minimum squeeze it underneath the notes on compact layouts. */
+    min-height: 104px;
+    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease
 }
 
 .chord-row:hover {
     background: var(--panel-4)
+}
+
+/* Drag handle — sits absolutely in the left gutter over the accent stripe,
+   so grabbing it doesn't disturb the card's grid or push the chord content
+   in from its natural padding. Icon stays muted until the row is hovered or
+   focused so it doesn't compete with the chord glyph. */
+.chord-drag-handle {
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: color-mix(in srgb, var(--tan-dim) 55%, transparent);
+    cursor: grab;
+    transition: color .15s ease
+}
+
+.chord-drag-handle .ui-icon {
+    width: 18px;
+    height: 18px;
+    pointer-events: none
+}
+
+.chord-row:hover .chord-drag-handle,
+.chord-drag-handle:focus-visible {
+    color: var(--accent)
+}
+
+.chord-drag-handle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px
+}
+
+/* Drag states — the moving card lifts slightly and the placeholder it leaves
+   behind is a dashed accent outline so the drop position stays obvious as
+   surrounding cards animate out of the way (SortableJS animation: 200). */
+.chord-row--drag-chosen {
+    cursor: grabbing
+}
+
+.chord-row--drag-chosen .chord-drag-handle {
+    cursor: grabbing;
+    color: var(--accent)
+}
+
+.chord-row--drag-active,
+.chord-row--drag-fallback {
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .38);
+    background: var(--panel-4);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    /* SortableJS drives the fallback via translate3d on every pointermove.
+       Any transition on transform (or a base "all") would animate each step
+       and make the card visibly lag behind the cursor. */
+    transition: none
+}
+
+.chord-row--drag-ghost {
+    background: transparent;
+    border: 1px dashed color-mix(in srgb, var(--accent) 70%, transparent);
+    border-left: 4px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    opacity: .35
+}
+
+.chord-row--drag-ghost > * {
+    visibility: hidden
+}
+
+/* Transition seams sit between chord rows in the DOM but aren't draggable.
+   Fade them out during a drag so the placeholder-and-neighbours animation
+   reads cleanly; the post-reorder re-render brings them back in place. */
+.progression-list--dragging .transition-seam {
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .12s ease
+}
+
+.transition-seam {
+    transition: opacity .18s ease
 }
 
 .chord-main {
@@ -571,6 +679,15 @@
     }
 
     .editor-scroll {
+        overflow: visible
+    }
+
+    .editor-section {
+        flex: 0 0 auto
+    }
+
+    .progression-list {
+        flex: 0 0 auto;
         overflow: visible
     }
 

@@ -120,6 +120,12 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
           onDeleteChord(chord) {
             replaceChords(progression.chords.filter((item) => item.id !== chord.id));
           },
+          onReorderChords(orderedIds) {
+            const byId = new Map(progression.chords.map((c) => [c.id, c]));
+            const nextChords = orderedIds.map((id) => byId.get(id)).filter(Boolean);
+            if (nextChords.length !== progression.chords.length) return;
+            replaceChords(nextChords);
+          },
           onSetChordBeats(chord, beats) {
             chord.bars = beatsToBars(beats, progression.settings.timeSig);
             resetIneligibleSeams();
@@ -338,6 +344,7 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
           window.removeEventListener('beforeunload', beforeUnload);
           stopPlayback();
           await flushSave();
+          editor.unmount?.();
           clearTheme();
           root.replaceChildren();
         },
