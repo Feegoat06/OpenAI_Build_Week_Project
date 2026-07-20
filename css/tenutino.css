@@ -1,5 +1,8 @@
 /* Tenutino is a DOM overlay, not part of the WebGL particle canvas. Keeping
-   the companion separate makes it crisp, draggable, and keyboard reachable. */
+   the companion separate makes it crisp, draggable, and keyboard reachable.
+
+   Tokens come from base.css: --accent* for per-project theming, --panel/--ink
+   for surfaces, --radius-* for corners, --font-body for text. */
 
 .tenutino-root {
     --tenutino-size: 46px;
@@ -50,7 +53,7 @@
     height: var(--tenutino-size);
     padding: 0;
     border: 0;
-    border-radius: 9px;
+    border-radius: var(--radius-cell);
     background: transparent;
     cursor: grab;
     touch-action: none;
@@ -64,8 +67,8 @@
 }
 
 .tenutino-character:focus-visible {
-    outline: 1px solid var(--anchor);
-    outline-offset: 4px
+    outline: 2px solid var(--accent);
+    outline-offset: 3px
 }
 
 .tenutino-character img {
@@ -82,12 +85,14 @@
     position: absolute;
     top: -3px;
     right: -3px;
-    width: 7px;
-    height: 7px;
-    border: 1px solid #0d0a08;
-    border-radius: 50%;
-    background: var(--anchor);
-    box-shadow: 0 0 0 3px rgba(209, 161, 90, .16), 0 0 9px rgba(209, 161, 90, .8);
+    width: 8px;
+    height: 8px;
+    border: 1px solid var(--ink);
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    box-shadow:
+        0 0 0 3px var(--accent-soft),
+        0 0 9px var(--accent-tint);
     animation: tenutino-notification 1.8s ease-in-out infinite
 }
 
@@ -95,20 +100,25 @@
     display: none
 }
 
+/* Popover menu — a mini floating card matching the transport / zoom controls.
+   Buttons inside are pill-shaped rows with body-font labels and accent hover. */
 .tenutino-menu {
     position: absolute;
-    left: calc(100% + 9px);
+    left: calc(100% + 10px);
     top: 50%;
     display: grid;
+    gap: 2px;
     width: max-content;
-    min-width: 142px;
-    padding: 5px;
-    border: 1px solid rgba(209, 161, 90, .28);
-    background: rgba(13, 10, 8, .96);
+    min-width: 168px;
+    padding: 6px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    backdrop-filter: blur(8px);
     box-shadow: 0 12px 34px rgba(0, 0, 0, .44);
     opacity: 0;
     pointer-events: none;
-    transform: translate(-5px, -50%);
+    transform: translate(-6px, -50%);
     transition: opacity .16s, transform .2s
 }
 
@@ -123,31 +133,39 @@
 .tenutino-root.is-following-playback .tenutino-menu {
     opacity: 0;
     pointer-events: none;
-    transform: translate(-5px, -50%)
+    transform: translate(-6px, -50%)
 }
 
 .tenutino-menu button {
-    padding: 8px 10px;
-    border: 0;
+    padding: 8px 14px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
     background: transparent;
     color: var(--tan);
-    font: 500 .58rem/1.15 var(--font-mono);
-    letter-spacing: .04em;
+    font: 500 var(--fs-eyebrow)/1.2 var(--font-body);
     text-align: left;
-    cursor: pointer
+    cursor: pointer;
+    transition: color .12s ease, background .12s ease, border-color .12s ease
 }
 
 .tenutino-menu button:hover,
 .tenutino-menu button:focus-visible {
     outline: none;
-    background: rgba(209, 161, 90, .11);
-    color: var(--ivory)
+    color: var(--ivory);
+    background: var(--accent-soft);
+    border-color: var(--accent-border)
 }
 
 .tenutino-menu .tenutino-return {
     margin-top: 4px;
-    border-top: 1px solid var(--hairline);
-    color: var(--anchor)
+    color: var(--accent)
+}
+
+.tenutino-menu .tenutino-return:hover,
+.tenutino-menu .tenutino-return:focus-visible {
+    color: var(--ink);
+    background: var(--accent);
+    border-color: var(--accent)
 }
 
 .tenutino-menu .tenutino-return[hidden] {
@@ -159,12 +177,14 @@
     left: 50%;
     bottom: calc(100% + 8px);
     width: max-content;
-    max-width: 190px;
-    padding: 7px 9px;
-    border: 1px solid rgba(209, 161, 90, .22);
-    background: rgba(13, 10, 8, .94);
+    max-width: 200px;
+    padding: 8px 12px;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-cell);
+    background: color-mix(in srgb, var(--panel) 92%, transparent);
+    backdrop-filter: blur(8px);
     color: var(--ivory);
-    font: italic .66rem/1.35 var(--font-display);
+    font: 400 var(--fs-copy)/1.4 var(--font-body);
     opacity: 0;
     pointer-events: none;
     transform: translate(-50%, 4px);
@@ -190,11 +210,15 @@
     transition: transform 70ms linear;
     filter:
         drop-shadow(0 5px 5px rgba(0, 0, 0, .58))
-        drop-shadow(0 0 7px rgba(209, 161, 90, .2))
+        drop-shadow(0 0 7px var(--accent-tint))
 }
 
 @keyframes tenutino-notification {
-    50% { box-shadow: 0 0 0 5px rgba(209, 161, 90, 0), 0 0 12px rgba(209, 161, 90, .9) }
+    50% {
+        box-shadow:
+            0 0 0 5px transparent,
+            0 0 12px var(--accent-tint)
+    }
 }
 
 @keyframes tenutino-dance {

@@ -65,7 +65,7 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
             <h2 id="tutor-chat-title">Let us look at the music</h2>
           </div>
         </div>
-        <button class="tutor-chat-close" type="button" aria-label="Close Tutor chat">&times;</button>
+        <button class="tutor-chat-close close-button" type="button" aria-label="Close Tutor chat">&times;</button>
       </header>
       <p class="tutor-chat-context"></p>
       <div class="tutor-chat-messages" role="log" aria-live="polite" aria-relevant="additions">
@@ -74,7 +74,7 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
       <form class="tutor-chat-composer">
         <label class="sr-only" for="tutor-chat-input">Message Tenutino</label>
         <textarea id="tutor-chat-input" rows="2" maxlength="600"></textarea>
-        <button type="submit" aria-label="Send message">Send</button>
+        <button class="tutor-chat-send primary-action" type="submit" aria-label="Send message">Send</button>
       </form>
     </aside>
   `;
@@ -210,7 +210,7 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
       clearTransient();
       errorEl = document.createElement('div');
       errorEl.className = 'tutor-chat-error';
-      errorEl.innerHTML = `<p>${ escapeHtml(message) }</p><button type="button">Retry</button>`;
+      errorEl.innerHTML = `<p>${ escapeHtml(message) }</p><button class="tutor-chat-retry" type="button">Retry</button>`;
       errorEl.querySelector('button').onclick = () => callbacks.onRetry?.(retryContext);
       messagesEl.append(errorEl);
       scrollToLatest();

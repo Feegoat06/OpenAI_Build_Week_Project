@@ -112,14 +112,10 @@ export function renderNotation(container, segments, settings, chords = []) {
   }
 
   const measureCount = Math.max(...segments.map((segment) => segment.measureIndex)) + 1;
-  const width = Math.max(600, container.clientWidth || 820);
-  const staveWidth = Math.max(230, Math.min(360, (width - 36) / Math.min(2, measureCount)));
-  const columns = Math.max(1, Math.floor((width - 20) / staveWidth));
-  const rows = Math.ceil(measureCount / columns);
-  const rowHeight = 150;
-  const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-  renderer.resize(width, rows * rowHeight + 20 + NOTATION_TOP_HEADROOM);
-  const context = renderer.getContext();
+  // The panel supplies the exact unscaled width for the current button zoom.
+  // A modest floor keeps extremely narrow mobile panes usable without forcing
+  // a desktop-sized SVG that leaves a visual gap at higher zoom levels.
+  const width = Math.max(320, container.clientWidth || 820);
   const clef = resolvedClef(segments, settings.clef);
   const staffColor = '#927a58';
   const lineColor = '#69563f';
@@ -131,29 +127,11 @@ export function renderNotation(container, segments, settings, chords = []) {
   const identityBySourceId = new Map();
   chords.forEach((chord) => identityBySourceId.set(chord.id, chordSpellingIdentity(chord)));
 
-  for (let measure = 0; measure < measureCount; measure += 1) {
-    const column = measure % columns;
-    const row = Math.floor(measure / columns);
-    const x = 10 + column * staveWidth;
-    const y = 16 + NOTATION_TOP_HEADROOM + row * rowHeight;
-    const measureLayout = {
-      index: measure,
-      x,
-      width: staveWidth,
-      staffTop: y + 40,
-      lineGap: 10,
-      timelineAnchors: [],
-      parkourObstacles: [],
-    };
-    layout.push(measureLayout);
-    context.openGroup('measure-group', `measure-${ measure }`, { 'data-measure': String(measure) });
-    const stave = new VF.Stave(x, y, staveWidth);
-    if (column === 0) {
-      stave.addClef(clef).addTimeSignature(`${ settings.timeSig.num }/${ settings.timeSig.den }`).addKeySignature(KEY_SIGNATURES[settings.key + 7]);
-    }
-    styleModifiers(stave, staffColor);
-    context.setStrokeStyle(lineColor); context.setFillStyle(lineColor);
-    stave.setStyle({ fillStyle: lineColor, strokeStyle: lineColor }).setContext(context).draw();
+  // Build and measure every voice before assigning staves. Formatter's
+  // minimum width includes accidentals, dots, flags, and chord noteheads, so
+  // a dense bar receives real engraving room instead of being squeezed into
+  // the same width as a whole-note bar.
+  const measures = Array.from({ length: measureCount }, (_, measure) => {
     const measureSegments = segments.filter((segment) => segment.measureIndex === measure);
     const entries = measureSegments.map((segment) => {
       const identity = segment.isTechnique ? null : identityBySourceId.get(segment.sourceId) ?? null;
@@ -291,13 +269,22 @@ export function renderNotation(container, segments, settings, chords = []) {
   const rows = systems.length;
   const rowHeight = 150;
   const renderer = new VF.Renderer(container, VF.Renderer.Backends.SVG);
-  renderer.resize(width, rows * rowHeight + 20);
+  renderer.resize(width, rows * rowHeight + 20 + NOTATION_TOP_HEADROOM);
   const context = renderer.getContext();
 
   for (const measureData of placements) {
-    const { measure, staveNotes, voice, formatter, column, row, x, staveWidth, startsMeasure, endsMeasure } = measureData;
-    const y = 16 + row * rowHeight;
-    layout.push({ index: measure, x, width: staveWidth, staffTop: y + 40, lineGap: 10 });
+    const { measure, entries, staveNotes, voice, formatter, column, row, x, staveWidth, startsMeasure, endsMeasure } = measureData;
+    const y = 16 + NOTATION_TOP_HEADROOM + row * rowHeight;
+    const measureLayout = {
+      index: measure,
+      x,
+      width: staveWidth,
+      staffTop: y + 40,
+      lineGap: 10,
+      timelineAnchors: [],
+      parkourObstacles: [],
+    };
+    layout.push(measureLayout);
     context.openGroup('measure-group', `measure-${ measure }`, { 'data-measure': String(measure) });
     const stave = new VF.Stave(x, y, staveWidth);
     if (!startsMeasure) stave.setBegBarType(VF.Barline.type.NONE);
@@ -315,8 +302,9 @@ export function renderNotation(container, segments, settings, chords = []) {
     if (staveNotes.length) {
       formatter.format([voice], staveWidth - (column === 0 ? 120 : 32));
       voice.draw(context, stave);
+      const fragmentSegments = entries.map((entry) => entry.segment);
       measureLayout.timelineAnchors = timelineAnchorsForNotes(
-        measureSegments,
+        fragmentSegments,
         staveNotes,
         measureLength,
       );
