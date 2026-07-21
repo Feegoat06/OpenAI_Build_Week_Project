@@ -511,8 +511,9 @@ export function mountTenutino({ container, scrollContainer, callbacks = {}, now 
 
   function characterClick() {
     if (suppressClick || isPlaying) return;
-    const locked = root.classList.toggle('is-menu-locked');
-    character.setAttribute('aria-expanded', String(locked));
+    root.classList.remove('is-menu-locked');
+    character.setAttribute('aria-expanded', 'false');
+    invokeAction('ask');
   }
 
   function documentPointerDown(event) {
@@ -521,15 +522,19 @@ export function mountTenutino({ container, scrollContainer, callbacks = {}, now 
     character.setAttribute('aria-expanded', 'false');
   }
 
-  function actionClick(event) {
-    const action = event.target.closest('[data-tenutino-action]')?.dataset.tenutinoAction;
-    if (!action) return;
+  function invokeAction(action) {
     if (action === 'return') returnToLatestEdit();
     else {
       const detail = { measureIndex: latestMeasure };
       callbacks[action]?.(detail);
       container.dispatchEvent(new CustomEvent(`tenutino:${ action }`, { bubbles: true, detail }));
     }
+  }
+
+  function actionClick(event) {
+    const action = event.target.closest('[data-tenutino-action]')?.dataset.tenutinoAction;
+    if (!action) return;
+    invokeAction(action);
     if (action !== 'return') {
       root.classList.remove('is-menu-locked');
       character.setAttribute('aria-expanded', 'false');
