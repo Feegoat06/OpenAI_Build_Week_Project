@@ -115,6 +115,13 @@ export function mountSheetMusicPanel({ container, callbacks = {} }) {
     });
   }
 
+  function setPlaybackControlsDisabled(disabled) {
+    tempoSliderEl.disabled = disabled;
+    tempoInputEl.disabled = disabled;
+    clefSelectEl.disabled = disabled;
+    container.querySelector('.sheet-music-controls')?.classList.toggle('is-disabled', disabled);
+  }
+
   function drawSheetMusic() {
     if (!effectiveSettings) return { measureCount: 0, layout: [] };
     const result = renderNotation(sheetMusicEl, currentSegments, effectiveSettings, currentChords);
@@ -239,6 +246,7 @@ export function mountSheetMusicPanel({ container, callbacks = {} }) {
       activeMeasure = index;
       applyActiveMeasureClasses();
     },
+    setPlaybackControlsDisabled,
     /** Effective (override-aware) settings used for playback and rendering. */
     getEffectiveSettings() {
       return effectiveSettings ?? baseSettings;

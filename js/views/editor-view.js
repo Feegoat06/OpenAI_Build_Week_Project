@@ -487,6 +487,7 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
 
       function setPlaybackState(next) {
         playbackState = next;
+        sheetMusic.setPlaybackControlsDisabled(next === 'playing');
         if (next === 'playing') transport.setPlayMode('pause');
         else if (next === 'paused') transport.setPlayMode('resume');
         else transport.setPlayMode('play');

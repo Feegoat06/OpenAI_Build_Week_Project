@@ -37,6 +37,10 @@
     justify-content: flex-end
 }
 
+.sheet-music-controls.is-disabled {
+    opacity: .48
+}
+
 /* Each label pairs a small uppercase caption with a shared form control
    (.tempo-control or .form-select). Slider/input/select styling itself lives
    in base.css so this panel and the project-settings modal stay in sync. */
