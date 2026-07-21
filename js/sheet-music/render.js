@@ -12,9 +12,13 @@
  * system break, VexFlow's partial-tie form is used for each side; a normal
  * two-note tie would otherwise draw diagonally through the page.
  */
-import { vexKeyForNote, chordSpellingIdentity } from '../engine/chords.js';
+import { vexKeyForNote, chordSpellingIdentity, formatChordSymbol } from '../engine/chords.js';
 import { accidentalFor } from '../engine/key-signature.js';
+import { decompose } from '../engine/rhythm.js';
 import { createParkourObstacle } from './parkour.js';
+
+/** SVG font families per theme chord font — same faces base.css declares. */
+const CHORD_SYMBOL_FAMILIES = { jazztext: 'MuseJazz Text', classical: 'Edwin' };
 
 const KEY_SIGNATURES = ['Cb', 'Gb', 'Db', 'Ab', 'Eb', 'Bb', 'F', 'C', 'G', 'D', 'A', 'E', 'B', 'F#', 'C#'];
 const DURATIONS = new Map([[4, 'w'], [3, 'hd'], [2, 'h'], [1, 'q'], [0.5, '8'], [0.25, '16']]);
@@ -32,6 +36,25 @@ function resolvedClef(segments, setting) {
 
 function styleModifiers(stave, color) {
   stave.getModifiers().forEach((modifier) => modifier.setStyle({ fillStyle: color, strokeStyle: color }));
+}
+
+/**
+ * Lead-sheet chord symbol (Cmaj⁷, Cm⁷, CO⁷, CØ⁷, Csus⁴, C+) as a VexFlow
+ * modifier, built from the same `formatChordSymbol` parts the editor renders
+ * in HTML so both surfaces always agree on the symbol convention.
+ * `fontFamily` matches the project theme's chord font (see base.css
+ * `--font-chord`), so the engraved symbols track the editor's look.
+ */
+function buildChordSymbolModifier(VF, parts, fontFamily) {
+  const symbol = new VF.ChordSymbol().setFont({ family: fontFamily, size: 15, weight: 700 });
+  const superscript = { symbolModifier: VF.ChordSymbol.symbolModifiers.SUPERSCRIPT };
+  symbol.addGlyphOrText(`${ parts.root }${ parts.baseline }`);
+  if (parts.marker === 'O') symbol.addGlyph('diminished', superscript);
+  else if (parts.marker === 'Ø') symbol.addGlyph('halfDiminished', superscript);
+  else if (parts.marker === '+') symbol.addGlyphOrText('+', superscript);
+  if (parts.suffix) symbol.addGlyphOrText(parts.suffix, superscript);
+  if (parts.superscript) symbol.addGlyphOrText(parts.superscript, superscript);
+  return symbol;
 }
 
 /**
@@ -131,31 +154,89 @@ export function renderNotation(container, segments, settings, chords = []) {
   // minimum width includes accidentals, dots, flags, and chord noteheads, so
   // a dense bar receives real engraving room instead of being squeezed into
   // the same width as a whole-note bar.
+  const chordById = new Map(chords.map((chord) => [chord.id, chord]));
+  const symbolAttachedFor = new Set();
+  const symbolFamily = CHORD_SYMBOL_FAMILIES[settings.theme?.chordFont] ?? CHORD_SYMBOL_FAMILIES.jazztext;
+  // A measure whose content is entirely silent is engraved as one centred
+  // whole-bar rest, and a trailing partial measure is padded with rests so
+  // the final bar reads complete instead of trailing off into blank staff.
+  // Display-only: playback still reads the raw segment list.
+  const displaySegments = (measureSegments, measure) => {
+    if (measureSegments.every((segment) => !segment.notes.length)) {
+      return [{
+        notes: [], durationBeats: measureLength, isTechnique: false,
+        sourceId: measureSegments[0]?.sourceId ?? `rest-pad-${ measure }`,
+        seamIndex: null, measureIndex: measure, startBeat: 0,
+      }];
+    }
+    const occupied = measureSegments.reduce((sum, segment) => sum + segment.durationBeats, 0);
+    const padded = [...measureSegments];
+    let startBeat = occupied;
+    for (const durationBeats of decompose(measureLength - occupied)) {
+      padded.push({
+        notes: [], durationBeats, isTechnique: false,
+        sourceId: `rest-pad-${ measure }`, seamIndex: null, measureIndex: measure, startBeat,
+      });
+      startBeat += durationBeats;
+    }
+    return padded;
+  };
+  // Mid-staff anchor for short rests; whole rests conventionally hang from
+  // the fourth staff line, so they get their own anchor per clef.
+  const restKey = clef === 'bass' ? 'd/3' : 'b/4';
+  const wholeRestKey = clef === 'bass' ? 'f/3' : 'd/5';
   const measures = Array.from({ length: measureCount }, (_, measure) => {
-    const measureSegments = segments.filter((segment) => segment.measureIndex === measure);
+    const measureSegments = displaySegments(
+      segments.filter((segment) => segment.measureIndex === measure),
+      measure,
+    );
     const entries = measureSegments.map((segment) => {
-      const identity = segment.isTechnique ? null : identityBySourceId.get(segment.sourceId) ?? null;
-      const spelled = segment.notes.map((midi) => vexKeyForNote(midi, identity, settings.key));
-      const staveNote = new VF.StaveNote({
-        clef,
-        keys: spelled,
-        duration: DURATIONS.get(segment.durationBeats) ?? 'q',
-        // Let VexFlow apply the single-voice engraving rule: below the
-        // middle line stems rise; above it they fall; chords use their outer
-        // noteheads to decide.
-        auto_stem: true,
-      });
-      // VexFlow 4 uses the dotted duration (`hd`) for tick accounting, but
-      // requires an explicit Dot modifier to engrave the dot itself. Without
-      // it, a three-beat segment looks like an ordinary two-beat half note.
-      if (segment.durationBeats === 3) VF.Dot.buildAndAttach([staveNote], { all: true });
-      spelled.forEach((vex, index) => {
-        const accidental = accidentalFor(vex, settings.key);
-        if (accidental) staveNote.addModifier(new VF.Accidental(accidental), index);
-      });
+      let staveNote;
+      if (!segment.notes.length) {
+        // Rest segment. A rest that fills its whole measure is engraved as a
+        // centred whole rest regardless of meter — standard convention.
+        const fillsMeasure = segment.startBeat === 0 && segment.durationBeats >= measureLength;
+        const durationCode = fillsMeasure ? 'w' : DURATIONS.get(segment.durationBeats) ?? 'q';
+        staveNote = new VF.StaveNote({
+          clef,
+          keys: [durationCode === 'w' ? wholeRestKey : restKey],
+          duration: `${ durationCode }r`,
+          align_center: fillsMeasure,
+        });
+        if (!fillsMeasure && segment.durationBeats === 3) VF.Dot.buildAndAttach([staveNote], { all: true });
+      } else {
+        const identity = segment.isTechnique ? null : identityBySourceId.get(segment.sourceId) ?? null;
+        const spelled = segment.notes.map((midi) => vexKeyForNote(midi, identity, settings.key));
+        staveNote = new VF.StaveNote({
+          clef,
+          keys: spelled,
+          duration: DURATIONS.get(segment.durationBeats) ?? 'q',
+          // Let VexFlow apply the single-voice engraving rule: below the
+          // middle line stems rise; above it they fall; chords use their outer
+          // noteheads to decide.
+          auto_stem: true,
+        });
+        // VexFlow 4 uses the dotted duration (`hd`) for tick accounting, but
+        // requires an explicit Dot modifier to engrave the dot itself. Without
+        // it, a three-beat segment looks like an ordinary two-beat half note.
+        if (segment.durationBeats === 3) VF.Dot.buildAndAttach([staveNote], { all: true });
+        spelled.forEach((vex, index) => {
+          const accidental = accidentalFor(vex, settings.key);
+          if (accidental) staveNote.addModifier(new VF.Accidental(accidental), index);
+        });
+      }
       const color = segment.isTechnique ? techniqueColor : userColor;
       staveNote.setStyle({ fillStyle: color, strokeStyle: color });
       staveNote.setLedgerLineStyle?.({ fillStyle: color, strokeStyle: color });
+      // Lead-sheet symbol above the first notehead of each NAMED user chord.
+      // Custom note-piles (no recognised quality) and technique material stay
+      // unlabelled; ties/continuation segments don't repeat the symbol.
+      if (segment.notes.length && !segment.isTechnique && !symbolAttachedFor.has(segment.sourceId)) {
+        symbolAttachedFor.add(segment.sourceId);
+        const chord = chordById.get(segment.sourceId);
+        const parts = chord ? formatChordSymbol(chord, settings.key) : null;
+        if (parts?.root) staveNote.addModifier(buildChordSymbolModifier(VF, parts, symbolFamily), 0);
+      }
       notesBySource.push({ segment, note: staveNote });
       return { segment, note: staveNote };
     });
@@ -165,6 +246,16 @@ export function renderNotation(container, segments, settings, chords = []) {
 
   const makeFragment = (measure, entries, startsMeasure, endsMeasure) => {
     const staveNotes = entries.map((entry) => entry.note);
+    // Beam runs of flagged notes (eighths/sixteenths) per the meter's default
+    // beat grouping. Must happen before formatting so stems and flags are
+    // resolved for width calculation; rests break groups automatically.
+    const beams = VF.Beam.generateBeams(staveNotes, {
+      groups: VF.Beam.getDefaultBeamGroups(`${ settings.timeSig.num }/${ settings.timeSig.den }`),
+    });
+    beams.forEach((beam) => {
+      const color = beam.getNotes()[0]?.getStyle()?.fillStyle ?? userColor;
+      beam.setStyle({ fillStyle: color, strokeStyle: color });
+    });
     const voice = new VF.Voice({ num_beats: settings.timeSig.num, beat_value: settings.timeSig.den }).setMode(VF.Voice.Mode.SOFT);
     voice.addTickables(staveNotes);
     const formatter = new VF.Formatter().joinVoices([voice]);
@@ -172,6 +263,7 @@ export function renderNotation(container, segments, settings, chords = []) {
       measure,
       entries,
       staveNotes,
+      beams,
       voice,
       formatter,
       startsMeasure,
@@ -189,6 +281,11 @@ export function renderNotation(container, segments, settings, chords = []) {
   const FIRST_SYSTEM_PREFIX = 126; // clef + time signature + key signature
   const LATER_SYSTEM_PREFIX = 40;  // left/right breathing room around notes
   const MIN_STAVE_WIDTH = 230;
+  // Justification never widens a bar past this, so a one-chord score reads as
+  // a normally proportioned bar at the left instead of stretching across the
+  // whole panel. Dense bars whose minimum width exceeds it still get their
+  // minimum.
+  const MAX_STAVE_WIDTH = 380;
   const FIRST_PREFIX_EXTRA = FIRST_SYSTEM_PREFIX - LATER_SYSTEM_PREFIX;
 
   const wholeMeasures = measures.map((entry) => makeFragment(entry.measure, entry.entries, true, true));
@@ -245,9 +342,11 @@ export function renderNotation(container, segments, settings, chords = []) {
     let x = 10;
     row.forEach((item, column) => {
       const isLast = column === row.length - 1;
-      const staveWidth = (isFullRow && isLast)
+      const uncappedWidth = (isFullRow && isLast)
         ? 10 + systemWidth - x
         : item.minimumWidth + extraPerMeasure;
+      const maxWidth = MAX_STAVE_WIDTH + (column === 0 ? FIRST_PREFIX_EXTRA : 0);
+      const staveWidth = Math.min(uncappedWidth, Math.max(item.minimumWidth, maxWidth));
       placements.push({
         ...item.fragment,
         column,
@@ -266,7 +365,7 @@ export function renderNotation(container, segments, settings, chords = []) {
   const context = renderer.getContext();
 
   for (const measureData of placements) {
-    const { measure, entries, staveNotes, voice, formatter, column, row, x, staveWidth, startsMeasure, endsMeasure } = measureData;
+    const { measure, entries, staveNotes, beams, voice, formatter, column, row, x, staveWidth, startsMeasure, endsMeasure } = measureData;
     const y = 16 + NOTATION_TOP_HEADROOM + row * rowHeight;
     const measureLayout = {
       index: measure,
@@ -282,6 +381,8 @@ export function renderNotation(container, segments, settings, chords = []) {
     const stave = new VF.Stave(x, y, staveWidth);
     if (!startsMeasure) stave.setBegBarType(VF.Barline.type.NONE);
     if (!endsMeasure) stave.setEndBarType(VF.Barline.type.NONE);
+    // The score's last bar closes with a final (thin-thick) barline.
+    if (endsMeasure && measure === measureCount - 1) stave.setEndBarType(VF.Barline.type.END);
     if (column === 0) {
       stave.addClef(clef);
       // Time signatures introduce the score; they are not repeated merely
@@ -295,13 +396,16 @@ export function renderNotation(container, segments, settings, chords = []) {
     if (staveNotes.length) {
       formatter.format([voice], staveWidth - (column === 0 ? 120 : 32));
       voice.draw(context, stave);
+      beams.forEach((beam) => beam.setContext(context).draw());
       const fragmentSegments = entries.map((entry) => entry.segment);
       measureLayout.timelineAnchors = timelineAnchorsForNotes(
         fragmentSegments,
         staveNotes,
         measureLength,
       );
+      // Rests have no noteheads for Tenutino to land on — skip them.
       measureLayout.parkourObstacles = staveNotes
+        .filter((note) => !note.isRest?.())
         .map((note) => createParkourObstacle(
           note.getKeyProps?.() ?? [],
           note.getAbsoluteX?.(),
@@ -319,6 +423,8 @@ export function renderNotation(container, segments, settings, chords = []) {
     const current = notesBySource[index];
     const next = notesBySource[index + 1];
     if (current.segment.sourceId !== next.segment.sourceId) continue;
+    // A rest split across a barline shares a sourceId but is never tied.
+    if (!current.segment.notes.length || !next.segment.notes.length) continue;
     const count = Math.min(current.note.keys.length, next.note.keys.length);
     const directions = tieDirections(current.note, next.note, count, VF);
 

@@ -24,6 +24,8 @@ const ICONS = Object.freeze({
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
   grip: '<circle cx="9" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/>',
   density: '<path d="M5 6h14M5 12h14M5 18h14"/>',
+  // Whole rest: a filled block hanging beneath a staff line.
+  rest: '<path d="M4 9h16"/><rect x="9" y="9" width="6" height="4.5" rx="0.5" fill="currentColor" stroke="none"/>',
 });
 
 export function icon(name, className = '') {

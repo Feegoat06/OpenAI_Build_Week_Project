@@ -59,8 +59,10 @@ import { compileProgression } from './engine/compile.js';
  * doubling, and inversion are all encoded implicitly in `notes`.
  * @typedef {Object} Chord
  * @property {string}     id     Stable, within-project-unique. SortableJS + edit/delete key.
- * @property {number[]}   notes  Exact MIDI notes (full keyboard 21..108).
+ * @property {number[]}   notes  Exact MIDI notes (full keyboard 21..108). Empty iff `rest`.
  * @property {number}     bars   Duration in bars (min 0.5, step 0.5).
+ * @property {boolean}   [rest]  True for a silence item: no notes, drawn as rests,
+ *                               skipped by playback and ineligible for techniques.
  * @property {ChordHint} [hint]  Optional display-only name hint.
  */
 
@@ -247,6 +249,21 @@ export function makeChord(notes, bars = 1, hint) {
 }
 
 /**
+ * A silence item that lives in the chord list. Occupies time like a chord,
+ * plays nothing, renders as rests, and can never carry a transition technique.
+ * @param {number} bars
+ * @returns {Chord}
+ */
+export function makeRest(bars = 1) {
+    return { id: newId('r'), notes: [], bars, rest: true };
+}
+
+/** True when a chord-list item is a rest (silence). */
+export function isRest(chord) {
+    return Boolean(chord?.rest) || (Array.isArray(chord?.notes) && chord.notes.length === 0);
+}
+
+/**
  * Creates a progression with exactly one seam per adjacent chord pair.
  * Callers may provide only the leading seams they care about; omitted seams
  * are direct transitions and excess entries are ignored.
@@ -341,6 +358,13 @@ export function validateProgression(raw) {
 
         if (!Array.isArray(raw.chords)) return { ok: false, warnings, error: 'chords is not an array.' };
         const chords = raw.chords.map((c, i) => {
+            const isRestItem = Boolean(c?.rest);
+            if (isRestItem) {
+                if (!Number.isFinite(c.bars) || c.bars <= 0 || c.bars > 32) {
+                    throw new Error(`Rest ${ i } has invalid bar duration.`);
+                }
+                return { id: typeof c.id === 'string' ? c.id : newId('r'), notes: [], bars: c.bars, rest: true };
+            }
             if (!c || !Array.isArray(c.notes) || c.notes.length === 0
                 || !c.notes.every((note) => Number.isInteger(note) && note >= 21 && note <= 108)) {
                 throw new Error(`Chord ${ i } has invalid notes.`);

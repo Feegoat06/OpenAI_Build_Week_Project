@@ -143,14 +143,18 @@ export async function playSegments(segments, settings, onMeasure, onStop, onProg
   let lastMeasure = -1;
   for (const event of coalesceTiedSegments(segments, measureLength)) {
     const at = event.startBeat * secondsPerBeat;
-    transport.schedule((time) => {
-      if (generation !== playbackGeneration) return;
-      instrument.triggerAttackRelease(
-        event.notes.map(frequency),
-        event.durationBeats * secondsPerBeat * 0.96,
-        time,
-      );
-    }, at);
+    // Rest events occupy time (they advance `end` and the measure highlight)
+    // but trigger no sound.
+    if (event.notes.length) {
+      transport.schedule((time) => {
+        if (generation !== playbackGeneration) return;
+        instrument.triggerAttackRelease(
+          event.notes.map(frequency),
+          event.durationBeats * secondsPerBeat * 0.96,
+          time,
+        );
+      }, at);
+    }
     end = Math.max(end, at + event.durationBeats * secondsPerBeat);
     if (event.measureIndex !== lastMeasure) {
       const measureIndex = event.measureIndex;

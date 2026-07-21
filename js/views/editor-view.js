@@ -14,7 +14,7 @@
  * On top of every mutation, `scheduleAutosave()` debounces a write to the
  * ProjectStore so localStorage stays in sync without a manual save button.
  */
-import { compile, makeChord, makeTheme, reconcileSeams, beatsToBars, isTechniqueUsable } from '../state.js';
+import { compile, makeChord, makeRest, makeTheme, reconcileSeams, beatsToBars, isTechniqueUsable } from '../state.js';
 import { chordDisplayName } from '../engine/chords.js';
 import { TECHNIQUES } from '../engine/techniques.js';
 import { evaluateAllTechniques } from '../engine/technique-eligibility.js';
@@ -213,6 +213,14 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
           onAddChord() {
             editingId = null;
             openPianoModal(pianoDialog, null, saveChord, progression.settings.timeSig, progression.settings.key);
+          },
+          onAddRest() {
+            const rest = makeRest(beatsToBars(1, progression.settings.timeSig));
+            progression.chords.push(rest);
+            if (progression.chords.length > 1) progression.seams.push(null);
+            resetIneligibleSeams();
+            rerender({ type: 'chord', chordId: rest.id });
+            editor.animateAddedChord(rest.id);
           },
           onEditChord(chord) {
             editingId = chord.id;

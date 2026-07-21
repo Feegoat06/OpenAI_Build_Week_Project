@@ -71,6 +71,7 @@ const QUALITY_ORDER = ['Dom7', 'Min7', 'Maj7', 'Dim7', 'm7b5', 'Major', 'Minor',
  */
 export function inferChordIdentity(chord, options = {}) {
   const { preferBassRoot = false } = options;
+  if (!chord.notes.length) return { rootPc: 0, quality: null, recognised: false };
   const pitchClasses = [...new Set(chord.notes.map(pitchClassOf))].sort((a, b) => a - b);
   const bassPc = pitchClassOf(Math.min(...chord.notes));
   const allPcs = Array.from({ length: 12 }, (_, i) => i);
@@ -114,6 +115,7 @@ export function noteName(midi, key = 0, withOctave = true) {
  * `formatChordSymbol` instead so extensions display in idiomatic superscript.
  */
 export function chordDisplayName(chord, key = 0) {
+  if (chord.rest || !chord.notes.length) return 'Rest';
   if (chord.hint) return `${ noteName(chord.hint.rootMidi, key, false) } ${ chord.hint.quality }`;
   return chord.notes.map((note) => noteName(note, key)).join('–');
 }
@@ -144,6 +146,9 @@ export function chordDisplayName(chord, key = 0) {
  * @returns {{ root: string, baseline: string, marker: string, suffix: string, superscript: string, plain: string }}
  */
 export function formatChordSymbol(chord, key = 0) {
+  if (chord.rest || !chord.notes.length) {
+    return { root: '', baseline: '', marker: '', suffix: '', superscript: '', plain: 'Rest' };
+  }
   const identity = chord.hint
     ? { rootPc: pitchClassOf(chord.hint.rootMidi), quality: chord.hint.quality, root: noteName(chord.hint.rootMidi, key, false) }
     : detectForDisplay(chord, key);
@@ -258,6 +263,7 @@ export function vexKeyForNote(midi, identity, key = 0) {
  * callers should then fall back to key-based spelling.
  */
 export function chordSpellingIdentity(chord) {
+  if (!chord.notes.length) return null;
   if (chord.hint) return { rootPc: pitchClassOf(chord.hint.rootMidi), quality: chord.hint.quality };
   const detected = inferChordIdentity(chord, { preferBassRoot: true });
   return detected.recognised ? { rootPc: detected.rootPc, quality: detected.quality } : null;

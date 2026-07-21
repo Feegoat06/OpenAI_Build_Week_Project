@@ -8,7 +8,7 @@
  * key, clef) are now edited through the shared project-settings-modal opened
  * by the pencil button — they no longer have inline controls here.
  */
-import { availableBeats, beatChoicesForMeter, chordTotalBeats, barsToBeats, beatsToBars, isTechniqueUsable } from '../state.js';
+import { availableBeats, beatChoicesForMeter, chordTotalBeats, barsToBeats, beatsToBars, isTechniqueUsable, isRest } from '../state.js';
 import { chordDisplayName, formatChordSymbol, noteName, chordToneName, chordSpellingIdentity } from '../engine/chords.js';
 import { evaluateAllTechniques } from '../engine/technique-eligibility.js';
 import { escapeHtml } from '../util/html.js';
@@ -47,7 +47,10 @@ const TEMPLATE = `
         <h2 id="chords-title" class="section-heading">Chords</h2>
         <button id="cycle-card-density" class="density-control" type="button">${ icon('density') }</button>
       </div>
-      <button id="add-chord" class="primary-action" type="button">${ icon('plus') }<span>Add Chord</span></button>
+      <div class="section-actions">
+        <button id="add-rest" class="ghost-action" type="button">${ icon('rest') }<span>Add Rest</span></button>
+        <button id="add-chord" class="primary-action" type="button">${ icon('plus') }<span>Add Chord</span></button>
+      </div>
     </div>
     <div id="progression-list" class="progression-list"></div>
   </section>
@@ -62,6 +65,7 @@ export function mountEditorPanel({ container, callbacks }) {
   const progressionListEl = container.querySelector('#progression-list');
   const chordsSectionEl = progressionListEl.closest('.editor-section');
   const addChordBtn = container.querySelector('#add-chord');
+  const addRestBtn = container.querySelector('#add-rest');
   const densityControlBtn = container.querySelector('#cycle-card-density');
 
   // Drag-to-reorder chord cards. SortableJS observes DOM mutations, so the
@@ -102,6 +106,7 @@ export function mountEditorPanel({ container, callbacks }) {
   let cardDensity = 'loose';
 
   addChordBtn.onclick = () => callbacks.onAddChord();
+  addRestBtn.onclick = () => callbacks.onAddRest();
   densityControlBtn.onclick = () => {
     const currentIndex = CARD_DENSITIES.indexOf(cardDensity);
     cardDensity = CARD_DENSITIES[(currentIndex + 1) % CARD_DENSITIES.length];
@@ -139,18 +144,23 @@ export function mountEditorPanel({ container, callbacks }) {
     const timeSig = progression.settings.timeSig;
     const beatChoices = beatChoicesForMeter(timeSig);
     const row = document.createElement('article');
-    row.className = 'chord-row';
+    const isRestRow = isRest(chord);
+    row.className = `chord-row${ isRestRow ? ' chord-row--rest' : '' }`;
     row.dataset.chordId = chord.id;
     const identity = chordSpellingIdentity(chord);
-    const notes = chord.notes.map((note) => identity
+    const notes = isRestRow ? 'silence' : chord.notes.map((note) => identity
       ? chordToneName(note, identity, progression.settings.key)
       : noteName(note, progression.settings.key)).join(' · ');
     const currentBeats = Number(barsToBeats(chord.bars, timeSig).toFixed(4));
     const options = beatChoices.includes(currentBeats) ? beatChoices : [...beatChoices, currentBeats].sort((a, b) => a - b);
     const displayName = escapeHtml(chordDisplayName(chord, progression.settings.key));
-    const glyphHtml = renderChordGlyph(formatChordSymbol(chord, progression.settings.key));
-    row.innerHTML = `<button class="chord-drag-handle" type="button" aria-label="Reorder ${ displayName }" tabindex="-1">${ icon('grip') }</button><button class="chord-main" aria-label="Edit ${ displayName }"><strong class="chord-glyph">${ glyphHtml }</strong><small>${ escapeHtml(notes) }</small></button><label class="chord-beats" aria-label="Beats for ${ displayName }"><span class="chord-beats-display" aria-hidden="true">${ formatBeatDisplay(currentBeats) } <em>${ currentBeats === 1 ? 'beat' : 'beats' }</em></span><select class="chord-beats-select">${ options.map((beats) => `<option value="${ beats }" ${ beats === currentBeats ? 'selected' : '' }>${ formatBeatDisplay(beats) }</option>`).join('') }</select></label><button class="delete-button" aria-label="Delete ${ displayName }">${ icon('trash') }</button>`;
-    row.querySelector('.chord-main').onclick = () => callbacks.onEditChord(chord);
+    const glyphHtml = isRestRow ? 'Rest' : renderChordGlyph(formatChordSymbol(chord, progression.settings.key));
+    // A rest has no notes to edit, so its main area is inert (no piano modal).
+    const mainHtml = isRestRow
+      ? `<div class="chord-main chord-main--rest"><strong class="chord-glyph">${ glyphHtml }</strong><small>${ escapeHtml(notes) }</small></div>`
+      : `<button class="chord-main" aria-label="Edit ${ displayName }"><strong class="chord-glyph">${ glyphHtml }</strong><small>${ escapeHtml(notes) }</small></button>`;
+    row.innerHTML = `<button class="chord-drag-handle" type="button" aria-label="Reorder ${ displayName }" tabindex="-1">${ icon('grip') }</button>${ mainHtml }<label class="chord-beats" aria-label="Beats for ${ displayName }"><span class="chord-beats-display" aria-hidden="true">${ formatBeatDisplay(currentBeats) } <em>${ currentBeats === 1 ? 'beat' : 'beats' }</em></span><select class="chord-beats-select">${ options.map((beats) => `<option value="${ beats }" ${ beats === currentBeats ? 'selected' : '' }>${ formatBeatDisplay(beats) }</option>`).join('') }</select></label><button class="delete-button" aria-label="Delete ${ displayName }">${ icon('trash') }</button>`;
+    if (!isRestRow) row.querySelector('.chord-main').onclick = () => callbacks.onEditChord(chord);
     row.querySelector('.chord-beats-select').onchange = (event) => callbacks.onSetChordBeats(chord, Number(event.target.value));
     row.querySelector('.delete-button').onclick = () => deleteChordWithAnimation(row, chord);
     return row;
@@ -279,6 +289,16 @@ export function mountEditorPanel({ container, callbacks }) {
     const selectedTechniqueId = progression.seams[index];
     const fromChord = progression.chords[index];
     const toChord = progression.chords[index + 1];
+    // Rests can't carry a transition technique: render a quiet divider
+    // instead of the interactive seam controls.
+    if (isRest(fromChord) || isRest(toChord)) {
+      const seam = document.createElement('article');
+      seam.className = 'transition-seam is-direct transition-seam--rest';
+      seam.dataset.fromChordId = fromChord.id;
+      seam.dataset.toChordId = toChord.id;
+      seam.innerHTML = '<div class="transition-connector"><span class="transition-rule" aria-hidden="true"></span></div>';
+      return seam;
+    }
     const budget = availableBeats(chordTotalBeats(fromChord, progression.settings.timeSig));
     const techniques = evaluateAllTechniques(fromChord, toChord);
     const selectedTechnique = techniques.find((technique) => technique.id === selectedTechniqueId);

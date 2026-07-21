@@ -27,6 +27,48 @@ export const PARTICLE_EFFECTS_ENABLED = true;
 const clamp = (v, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
 const ease  = (t) => 1 - (1 - clamp(t)) ** 3;
 
+// ── Font embedding for SVG rasterization ───────────────────────────
+// The SVG is rasterized through an <img>, whose isolated document cannot see
+// the page's @font-face fonts — chord-symbol text would silently fall back
+// to a generic serif in the particle layer while the live SVG shows the real
+// project font. Embedding the face as a data: URI inside the serialized
+// markup keeps both layers identical. Fetched once per family, then cached.
+const FONT_SOURCES = new Map([
+  ['MuseJazz Text', { url: '/fonts/MuseJazzText.otf', weight: '400 700' }],
+  ['Edwin', { url: '/fonts/Edwin-Bold.otf', weight: '700' }],
+]);
+const fontDataUris = new Map();
+
+async function fontFaceStyleFor(svg) {
+  const families = new Set();
+  svg.querySelectorAll('text').forEach((text) => {
+    const family = text.getAttribute('font-family');
+    if (family && FONT_SOURCES.has(family)) families.add(family);
+  });
+  const rules = [];
+  for (const family of families) {
+    if (!fontDataUris.has(family)) {
+      try {
+        const buffer = await (await fetch(FONT_SOURCES.get(family).url)).arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        }
+        fontDataUris.set(family, `data:font/otf;base64,${ btoa(binary) }`);
+      } catch {
+        fontDataUris.set(family, null); // fetch failed: fall back silently
+      }
+    }
+    const uri = fontDataUris.get(family);
+    if (uri) {
+      const { weight } = FONT_SOURCES.get(family);
+      rules.push(`@font-face{font-family:'${ family }';src:url('${ uri }') format('opentype');font-weight:${ weight };}`);
+    }
+  }
+  return rules.length ? `<style>${ rules.join('') }</style>` : '';
+}
+
 /** Use the same musical coordinate as Tenutino: measure + progress in it. */
 export function particlePlayhead(measureIndex, measureProgress, layoutLength, globalProgress = 0) {
   if (Number.isInteger(measureIndex) && measureIndex >= 0) {
@@ -619,7 +661,10 @@ export function createSheetMusicParticles(canvas) {
     if (!svg || !par) return null;
     const w = Math.max(1, Math.round(par.clientWidth));
     const h = Math.max(1, Math.round(par.clientHeight));
-    const markup = new XMLSerializer().serializeToString(svg);
+    const fontStyle = await fontFaceStyleFor(svg);
+    if (gen !== sampleGen) return null;
+    const markup = new XMLSerializer().serializeToString(svg)
+      .replace(/(<svg[^>]*>)/, `$1${ fontStyle }`);
     const timelineKey = nextLayout.map((measure) => (measure.timelineAnchors ?? [])
       .map((anchor) => `${Number(anchor.x).toFixed(2)},${Number(anchor.progress).toFixed(4)}`)
       .join(';')).join('|');

@@ -316,8 +316,47 @@
     gap: 8px
 }
 
-.section-title .primary-action {
-    margin-left: auto
+.section-actions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px
+}
+
+/* Outline sibling of .primary-action for the secondary "Add Rest" action. */
+.ghost-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--accent);
+    font: 600 .82rem var(--font-body);
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease
+}
+
+.ghost-action:hover,
+.ghost-action:focus-visible {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent)
+}
+
+.ghost-action:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px
+}
+
+.ghost-action svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.25;
+    stroke-linecap: round
 }
 
 /* Cycles the chord cards through loose, compact, and dense layouts. The
@@ -431,6 +470,20 @@
 
 .chord-row:hover {
     background: var(--panel-4)
+}
+
+/* Rest card: muted stripe and glyph — silence, not a playable chord. Its
+   main area is a plain div (nothing to edit), so no pointer affordance. */
+.chord-row--rest {
+    border-left-color: color-mix(in srgb, var(--tan-dim) 60%, transparent)
+}
+
+.chord-row--rest .chord-glyph {
+    color: var(--tan-dim)
+}
+
+.chord-main.chord-main--rest {
+    cursor: default
 }
 
 /* Cards and seams share one motion. Exit states simply play that same
@@ -765,6 +818,12 @@
    one so we only draw the leading accent tick. */
 .transition-toggle > .transition-rule:last-child {
     display: none
+}
+
+/* Seam adjacent to a rest: no technique is possible, so the seam is just a
+   quiet tick with no interactive controls. */
+.transition-seam--rest .transition-connector {
+    min-height: 26px
 }
 
 /* One-click coach shortcut on every seam. Fades in on hover/focus (always

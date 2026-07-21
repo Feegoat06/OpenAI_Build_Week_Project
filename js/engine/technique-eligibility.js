@@ -31,6 +31,9 @@ function circularDistance(a, b) {
  * otherwise unlabelled user voicings.
  */
 export function evaluateTechnique(id, fromChord, toChord) {
+  if (!fromChord.notes.length || !toChord.notes.length) {
+    return { id, valid: false, reason: 'a rest cannot carry a transition' };
+  }
   const from = inferChordIdentity(fromChord);
   const to = inferChordIdentity(toChord);
 
