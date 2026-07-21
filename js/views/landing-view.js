@@ -13,6 +13,7 @@ import { makeProgression, makeSettings } from '../state.js';
 export function createLandingView({ store, projectSettingsDialog }) {
   return {
     async mount(root) {
+      document.title = 'Home - LEGATO';
       // Folder filter + multi-select state. Session-only by design: a page
       // load always starts back at "All projects" with nothing selected.
       let activeFolderId = null;

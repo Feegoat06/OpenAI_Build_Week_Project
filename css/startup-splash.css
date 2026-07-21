@@ -65,14 +65,6 @@ html[data-legato-navigation="reload"] .startup-splash {
     object-fit: contain
 }
 
-.startup-splash-workspace {
-    margin-left: auto;
-    color: var(--tan-dim);
-    font: 500 .6rem var(--font-mono);
-    text-transform: uppercase;
-    letter-spacing: .18em
-}
-
 .startup-splash-content {
     position: absolute;
     inset: 70px 0 0;
@@ -179,10 +171,6 @@ html[data-legato-navigation="reload"] .startup-splash {
 @media (max-width: 700px) {
     .startup-splash-header {
         padding: 14px 22px
-    }
-
-    .startup-splash-workspace {
-        display: none
     }
 
     .startup-splash-content {

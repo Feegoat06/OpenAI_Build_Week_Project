@@ -71,6 +71,7 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
       // ── Local state (was module-level in the old main.js) ────────────
       let progression = project.progression;
       let currentName = project.name;
+      document.title = currentName || 'Untitled project';
       let segments = [];
       let editingId = null;
       let selectedSeam = 0;
@@ -259,6 +260,7 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
           onRenameProject(name) {
             const clean = name.trim() || 'Untitled project';
             currentName = clean;
+            document.title = clean;
             scheduleAutosave();
             editor.render({ progression, selectedSeam, projectName: currentName });
           },
