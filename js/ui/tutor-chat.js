@@ -117,6 +117,57 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
   let playbackActive = false;
   let loadingEl = null;
   let errorEl = null;
+  let stopTyping = null;
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /**
+   * Reveal a freshly appended assistant bubble one character at a time, walking
+   * its text-bearing paragraphs in order. The responses arrive as complete JSON
+   * (not streamed), so this is a purely cosmetic "typing" effect. Any reveal in
+   * progress finishes instantly before a new one starts, and reduced-motion
+   * users get the full text immediately.
+   */
+  function typewriterReveal(article) {
+    const segments = [...article.querySelectorAll('p')]
+      .map((el) => ({ el, text: el.textContent }))
+      .filter((seg) => seg.text.length > 0);
+    if (!segments.length) return;
+    if (stopTyping) stopTyping();
+    if (reducedMotion) return;
+
+    segments.forEach((seg) => { seg.el.textContent = ''; });
+    article.classList.add('is-typing');
+    let seg = 0;
+    let chars = 0;
+    let timer = null;
+
+    const finish = () => {
+      if (timer) clearInterval(timer);
+      segments.forEach((entry) => { entry.el.textContent = entry.text; });
+      segments[segments.length - 1].el.classList.remove('is-typing-line');
+      article.classList.remove('is-typing');
+      stopTyping = null;
+    };
+
+    segments[0].el.classList.add('is-typing-line');
+    timer = setInterval(() => {
+      const current = segments[seg];
+      chars += 3;
+      current.el.textContent = current.text.slice(0, chars);
+      if (chars >= current.text.length) {
+        current.el.textContent = current.text;
+        current.el.classList.remove('is-typing-line');
+        seg += 1;
+        chars = 0;
+        if (seg >= segments.length) { finish(); return; }
+        segments[seg].el.classList.add('is-typing-line');
+      }
+      scrollToLatest();
+    }, 18);
+
+    stopTyping = finish;
+  }
 
   function persist() {
     if (!storageKey) return;
@@ -128,7 +179,7 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
     requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
   }
 
-  function renderEntry(entry) {
+  function renderEntry(entry, { animate = false } = {}) {
     const article = document.createElement('article');
     article.className = `tutor-message is-${ entry.role }`;
     if (entry.role === 'user') {
@@ -139,6 +190,8 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
       article.innerHTML = `<span>Tenutino</span>${ resultMarkup(entry.content) }`;
     }
     messagesEl.append(article);
+    if (animate && entry.role === 'assistant') typewriterReveal(article);
+    return article;
   }
 
   function syncEmptyState() {
@@ -160,12 +213,13 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
     errorEl = null;
   }
 
-  function append(role, content) {
+  function append(role, content, { animate = false } = {}) {
+    if (stopTyping) stopTyping();
     clearTransient();
     const entry = { role, content, mode, createdAt: Date.now() };
     history.push(entry);
     history = history.slice(-MAX_HISTORY);
-    renderEntry(entry);
+    renderEntry(entry, { animate });
     syncEmptyState();
     persist();
     scrollToLatest();
@@ -232,21 +286,21 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
     },
     setContext(text) { contextEl.textContent = text; },
     clearTransient,
-    appendAssistant(message) { append('assistant', message); },
+    appendAssistant(message) { append('assistant', message, { animate: true }); },
     setLoading() {
       clearTransient();
       loadingEl = document.createElement('div');
       loadingEl.className = 'tutor-chat-loading';
       const loadingCopy = mode === 'suggest'
-        ? 'Finding one practical change to try...'
+        ? 'Finding one practical change to try'
         : mode === 'ask'
-          ? 'Thinking about your question...'
-          : 'Tracing the exact voices and generated notes...';
-      loadingEl.innerHTML = `<span class="spinner"></span><p>${ loadingCopy }</p>`;
+          ? 'Thinking about your question'
+          : 'Tracing the exact voices and generated notes';
+      loadingEl.innerHTML = `<p>${ loadingCopy }<span class="tutor-typing-dots" aria-hidden="true"><i></i><i></i><i></i></span></p>`;
       messagesEl.append(loadingEl);
       scrollToLatest();
     },
-    setResult(result) { append('assistant', result); },
+    setResult(result) { append('assistant', result, { animate: true }); },
     setError(message, retryContext) {
       clearTransient();
       errorEl = document.createElement('div');
@@ -259,6 +313,7 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
     getHistory() { return history.map((entry) => ({ ...entry })); },
     getMode() { return mode; },
     destroy() {
+      if (stopTyping) stopTyping();
       closeButton.removeEventListener('click', close);
       opener.removeEventListener('click', openFromOpener);
       document.removeEventListener('pointerdown', closeOnOutsidePointerDown);

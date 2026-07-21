@@ -245,6 +245,46 @@
     margin: 0
 }
 
+/* Blinking caret trailing the paragraph currently being revealed by the
+   typewriter effect (see typewriterReveal in tutor-chat.js). */
+.tutor-message .is-typing-line::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background: var(--accent);
+    animation: tutor-caret-blink 1s steps(1, end) infinite
+}
+
+@keyframes tutor-caret-blink {
+    50% { opacity: 0 }
+}
+
+/* Three dots that pulse in sequence at the end of the wait message. */
+.tutor-typing-dots {
+    display: inline-flex;
+    gap: 3px;
+    margin-left: 3px
+}
+
+.tutor-typing-dots i {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: tutor-dot-pulse 1.2s ease-in-out infinite
+}
+
+.tutor-typing-dots i:nth-child(2) { animation-delay: .2s }
+.tutor-typing-dots i:nth-child(3) { animation-delay: .4s }
+
+@keyframes tutor-dot-pulse {
+    0%, 60%, 100% { opacity: .25; transform: translateY(0) }
+    30% { opacity: 1; transform: translateY(-2px) }
+}
+
 .tutor-chat-error {
     align-items: flex-start;
     flex-direction: column;
@@ -325,6 +365,15 @@
     .tutor-chat-opener,
     .tutor-chat-opener .ui-icon {
         transition: none
+    }
+
+    .tutor-typing-dots i,
+    .tutor-message .is-typing-line::after {
+        animation: none
+    }
+
+    .tutor-message .is-typing-line::after {
+        display: none
     }
 }
 
