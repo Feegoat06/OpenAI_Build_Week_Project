@@ -33,25 +33,19 @@
 }
 
 .brand {
-    font: 700 .82rem var(--font-body);
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    font: 700 .82rem/1 var(--font-body);
     letter-spacing: .06em;
     color: var(--ivory);
     text-decoration: none
 }
 
-.brand-block p,
-.brand-subtitle {
-    margin: 2px 0 0;
-    color: var(--tan-dim);
-    font: 500 var(--fs-label) var(--font-body);
-    text-transform: uppercase;
-    letter-spacing: .12em
-}
-
 .brand-home {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     padding: 0;
     border: 0;
     background: none;
@@ -63,11 +57,6 @@
 
 .brand-home:hover .brand {
     color: var(--accent)
-}
-
-.brand-copy {
-    display: flex;
-    flex-direction: column
 }
 
 .view-all-projects {
@@ -665,6 +654,10 @@
     color: inherit;
     font: inherit;
     padding: 0
+}
+
+.chord-beats-select option {
+    color: #000
 }
 
 /* Keep delete controls visible so every chord card exposes its action. */

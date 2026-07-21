@@ -10,10 +10,11 @@
 }
 
 .landing-header {
+    height: 74px;
     display: flex;
     align-items: center;
     gap: 18px;
-    padding: 24px 40px;
+    padding: 0 26px;
     border-bottom: 1px solid var(--hairline)
 }
 
@@ -526,10 +527,6 @@
 }
 
 @media (max-width: 700px) {
-    .landing-header {
-        padding: 20px 24px
-    }
-
     .landing-scroll {
         padding: 0 24px 60px
     }

@@ -23,9 +23,7 @@ const TEMPLATE = `
 <header class="brand-block">
   <button id="brand-home" class="brand-home" type="button" aria-label="View all projects">
     <img class="brand-mark" src="/assets/brand/legato-icon.png" alt="" draggable="false">
-    <span class="brand-copy"><span class="brand">LEGATO</span>
-      <span class="brand-subtitle">Progression coach</span>
-    </span>
+    <span class="brand">LEGATO</span>
   </button>
   <button id="view-all-projects" class="text-action view-all-projects" type="button">${ icon('home') }<span>All projects</span></button>
 </header>
