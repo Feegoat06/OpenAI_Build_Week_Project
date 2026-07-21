@@ -9,15 +9,19 @@
  * Layout (versioned so future migrations are safe):
  *   legato.schemaVersion   → "1"
  *   legato.projects        → JSON array of Project objects
+ *   legato.folders         → JSON array of Folder objects ({id, name, ...})
  *
  * Each stored Project has a `deletedAt: string|null` field — soft-delete flag
- * for Trash. `null` means active; ISO string means trashed. Export drops the
- * field so on-disk export files stay on the schema in docs/data-model.md §0.
+ * for Trash. `null` means active; ISO string means trashed. Projects also
+ * carry `folderId: string|null` — device-local organization into folders.
+ * Export drops both fields so on-disk export files stay on the schema in
+ * docs/data-model.md §0; imported projects always land outside any folder.
  */
 import { SCHEMA_VERSION, newId, makeProgression, makeSettings, validateProgression } from './state.js';
 import { DEMO_PROJECTS } from './data/demo-projects.js';
 
 const STORAGE_KEY = 'legato.projects';
+const FOLDERS_KEY = 'legato.folders';
 const VERSION_KEY = 'legato.schemaVersion';
 const EXPORT_KIND = 'legato-projects';
 
@@ -45,6 +49,28 @@ export function createProjectStore({ storage = defaultStorage() } = {}) {
     } catch (error) {
       const quota = isQuotaError(error);
       return { ok: false, quota, error };
+    }
+  }
+
+  function readFolders() {
+    const raw = storage.getItem(FOLDERS_KEY);
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((f) => f && typeof f.id === 'string' && typeof f.name === 'string')
+        : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeFolders(folders) {
+    try {
+      storage.setItem(FOLDERS_KEY, JSON.stringify(folders));
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, quota: isQuotaError(error), error };
     }
   }
 
@@ -81,7 +107,7 @@ export function createProjectStore({ storage = defaultStorage() } = {}) {
       const found = readAll().find((p) => p.id === id);
       return found ?? null;
     },
-    async createProject({ name = 'Untitled project', progression } = {}) {
+    async createProject({ name = 'Untitled project', progression, folderId = null } = {}) {
       const now = new Date().toISOString();
       const project = {
         id: newId('p'),
@@ -89,6 +115,7 @@ export function createProjectStore({ storage = defaultStorage() } = {}) {
         createdAt: now,
         updatedAt: now,
         deletedAt: null,
+        folderId: folderId && readFolders().some((f) => f.id === folderId) ? folderId : null,
         progression: progression ?? emptyProgression(),
       };
       const all = readAll();
@@ -140,13 +167,95 @@ export function createProjectStore({ storage = defaultStorage() } = {}) {
       const source = readAll().find((p) => p.id === id);
       if (!source) return null;
       const name = uniqueName(`${ source.name } (copy)`, readAll());
-      return this.createProject({ name, progression: cloneProgression(source.progression) });
+      // The copy stays in the source's folder so it appears next to the
+      // original when the user is filtered to that folder.
+      return this.createProject({
+        name,
+        progression: cloneProgression(source.progression),
+        folderId: source.folderId ?? null,
+      });
     },
     async cloneDemo(demoId, { name } = {}) {
       const demo = DEMO_PROJECTS.find((d) => d.id === demoId);
       if (!demo) return null;
       const finalName = uniqueName(name ?? demo.name, readAll());
       return this.createProject({ name: finalName, progression: cloneProgression(demo.progression) });
+    },
+
+    // ── Folders — device-local project organization ─────────────────────
+    async listFolders() {
+      return readFolders().sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? ''));
+    },
+    async createFolder(name) {
+      const folders = readFolders();
+      const now = new Date().toISOString();
+      const folder = {
+        id: newId('f'),
+        name: uniqueFolderName(String(name || 'New folder').trim() || 'New folder', folders),
+        createdAt: now,
+        updatedAt: now,
+      };
+      const result = writeFolders([...folders, folder]);
+      if (!result.ok) throw makeStorageError(result);
+      return folder;
+    },
+    async renameFolder(id, name) {
+      const folders = readFolders();
+      const folder = folders.find((f) => f.id === id);
+      if (!folder) return null;
+      const trimmed = String(name || '').trim();
+      if (!trimmed) return folder;
+      folder.name = uniqueFolderName(trimmed, folders.filter((f) => f.id !== id));
+      folder.updatedAt = new Date().toISOString();
+      const result = writeFolders(folders);
+      if (!result.ok) throw makeStorageError(result);
+      return folder;
+    },
+    /**
+     * Deleting a folder never deletes projects: members are released back
+     * to the unfiled ("All projects") surface.
+     */
+    async deleteFolder(id) {
+      const folders = readFolders();
+      if (!folders.some((f) => f.id === id)) return false;
+      const foldersResult = writeFolders(folders.filter((f) => f.id !== id));
+      if (!foldersResult.ok) throw makeStorageError(foldersResult);
+      const all = readAll();
+      let touched = false;
+      for (const project of all) {
+        if (project.folderId === id) {
+          project.folderId = null;
+          touched = true;
+        }
+      }
+      if (touched) {
+        const projectsResult = writeAll(all);
+        if (!projectsResult.ok) throw makeStorageError(projectsResult);
+      }
+      return true;
+    },
+    /**
+     * Move projects into a folder (or out of any folder with `null`).
+     * Assignment is not a content edit, so `updatedAt` is left untouched —
+     * filing a project must not reshuffle the recency-sorted grid.
+     */
+    async assignToFolder(projectIds, folderId) {
+      const target = folderId == null ? null : folderId;
+      if (target && !readFolders().some((f) => f.id === target)) return [];
+      const wanted = new Set(Array.isArray(projectIds) ? projectIds : [projectIds]);
+      const all = readAll();
+      const moved = [];
+      for (const project of all) {
+        if (wanted.has(project.id) && (project.folderId ?? null) !== target) {
+          project.folderId = target;
+          moved.push(project);
+        }
+      }
+      if (moved.length) {
+        const result = writeAll(all);
+        if (!result.ok) throw makeStorageError(result);
+      }
+      return moved;
     },
 
     /**
@@ -209,6 +318,7 @@ export function createProjectStore({ storage = defaultStorage() } = {}) {
           createdAt: typeof entry?.createdAt === 'string' ? entry.createdAt : now,
           updatedAt: now,
           deletedAt: null,
+          folderId: null,
           progression: result.progression,
         });
       }
@@ -273,7 +383,7 @@ function cloneProgression(progression) {
 }
 
 function stripInternalFields(project) {
-  const { deletedAt: _deletedAt, ...rest } = project;
+  const { deletedAt: _deletedAt, folderId: _folderId, ...rest } = project;
   return rest;
 }
 
@@ -290,6 +400,16 @@ function uniqueName(base, existing, pending = []) {
       .filter((p) => !p.deletedAt)
       .map((p) => p.name),
   );
+  if (!taken.has(base)) return base;
+  for (let n = 2; n < 1000; n += 1) {
+    const candidate = `${ base } (${ n })`;
+    if (!taken.has(candidate)) return candidate;
+  }
+  return `${ base } (${ Date.now().toString(36) })`;
+}
+
+function uniqueFolderName(base, existing) {
+  const taken = new Set(existing.map((f) => f.name));
   if (!taken.has(base)) return base;
   for (let n = 2; n < 1000; n += 1) {
     const candidate = `${ base } (${ n })`;

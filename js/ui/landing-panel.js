@@ -5,12 +5,17 @@
  * time-guarded resume sends them straight back into the editor). Sections:
  *
  *   1. Actions row        — New project, Import…, Export all.
- *   2. Recent projects    — user's active projects, sorted by updatedAt desc.
+ *   2. Recent projects    — user's active projects, sorted by updatedAt desc,
+ *                            organized through folder filter chips. Cards can
+ *                            be multi-selected (hover checkbox) and moved to
+ *                            a folder by dragging onto a chip or through the
+ *                            floating selection bar.
  *   3. Demo projects      — read from js/data/demo-projects.js; opening one
  *                            clones it into localStorage as a new project.
  *   4. Trash              — collapsible; Restore / Delete permanently.
  *
- * DOM lives here. The view module wires callbacks up to the store.
+ * DOM lives here. The view module owns the filter/selection state and wires
+ * callbacks up to the store.
  */
 import { escapeHtml } from '../util/html.js';
 import { icon } from './icons.js';
@@ -41,6 +46,7 @@ const TEMPLATE = `
           <button id="landing-new" class="primary-action" type="button">${ icon('plus') }<span>New Project</span></button>
         </div>
       </div>
+      <div id="landing-folder-row" class="landing-folder-row" role="toolbar" aria-label="Project folders"></div>
       <div id="landing-recent-grid" class="landing-grid landing-grid-rail"></div>
     </section>
 
@@ -70,8 +76,19 @@ const TEMPLATE = `
       <p>Projects are stored on this device. Use Export to back them up or move them to another browser.</p>
     </footer>
   </div>
+
+  <div id="landing-selection-bar" class="landing-selection-bar" hidden>
+    <span id="landing-selection-count" class="landing-selection-count"></span>
+    <div class="landing-selection-move">
+      <button id="landing-selection-move-btn" class="landing-selection-action" type="button" aria-haspopup="true" aria-expanded="false">${ icon('folder') }<span>Move to folder</span>${ icon('chevronUp') }</button>
+      <div id="landing-selection-menu" class="landing-selection-menu" role="menu" hidden></div>
+    </div>
+    <button id="landing-selection-clear" class="landing-selection-action" type="button">${ icon('close') }<span>Clear</span></button>
+  </div>
 </div>
 `;
+
+const DRAG_MIME = 'application/x-legato-project-ids';
 
 export function mountLandingPanel({ container, callbacks }) {
   container.insertAdjacentHTML('beforeend', TEMPLATE);
@@ -82,6 +99,7 @@ export function mountLandingPanel({ container, callbacks }) {
   const importInput = shell.querySelector('#landing-import-file');
   const exportAllBtn = shell.querySelector('#landing-export-all');
   const noticeEl = shell.querySelector('#landing-notice');
+  const folderRow = shell.querySelector('#landing-folder-row');
   const recentGrid = shell.querySelector('#landing-recent-grid');
   const recentCount = shell.querySelector('#landing-recent-count');
   const demosGrid = shell.querySelector('#landing-demos-grid');
@@ -90,8 +108,18 @@ export function mountLandingPanel({ container, callbacks }) {
   const trashRegion = shell.querySelector('#landing-trash-region');
   const trashGrid = shell.querySelector('#landing-trash-grid');
   const trashCount = shell.querySelector('#landing-trash-count');
+  const selectionBar = shell.querySelector('#landing-selection-bar');
+  const selectionCount = shell.querySelector('#landing-selection-count');
+  const selectionMoveBtn = shell.querySelector('#landing-selection-move-btn');
+  const selectionMenu = shell.querySelector('#landing-selection-menu');
+  const selectionClearBtn = shell.querySelector('#landing-selection-clear');
 
   let trashOpen = false;
+  // Snapshot of the last render, read by the selection bar, folder chips,
+  // and drag handlers. The view owns this state; the panel only mirrors it.
+  let currentFolders = [];
+  let currentSelected = new Set();
+  let dragPreviewEl = null;
 
   newBtn.onclick = () => callbacks.onNewProject();
   importBtn.onclick = () => importInput.click();
@@ -111,26 +139,248 @@ export function mountLandingPanel({ container, callbacks }) {
   };
   trashEmptyBtn.onclick = () => callbacks.onEmptyTrash();
 
-  function renderCards(gridEl, cards, kind) {
+  // ── Selection bar ─────────────────────────────────────────────────────
+  selectionClearBtn.onclick = () => callbacks.onClearSelection();
+  selectionMoveBtn.onclick = (event) => {
+    event.stopPropagation();
+    if (selectionMenu.hidden) openSelectionMenu();
+    else closeSelectionMenu();
+  };
+  shell.addEventListener('click', (event) => {
+    if (!selectionMenu.hidden && !event.target.closest('.landing-selection-move')) {
+      closeSelectionMenu();
+    }
+  });
+
+  function menuItem({ label, iconName, onPick }) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'landing-selection-menu-item';
+    item.setAttribute('role', 'menuitem');
+    item.innerHTML = `${ iconName ? icon(iconName) : '' }<span>${ escapeHtml(label) }</span>`;
+    item.onclick = () => { closeSelectionMenu(); onPick(); };
+    return item;
+  }
+
+  function openSelectionMenu() {
+    selectionMenu.replaceChildren();
+    const ids = () => [...currentSelected];
+    for (const folder of currentFolders) {
+      selectionMenu.append(menuItem({
+        label: folder.name,
+        iconName: 'folder',
+        onPick: () => callbacks.onMoveToFolder(ids(), folder.id),
+      }));
+    }
+    selectionMenu.append(menuItem({
+      label: 'New folder…',
+      iconName: 'plus',
+      onPick: () => {
+        const name = prompt('Folder name', 'New folder');
+        if (name && name.trim()) callbacks.onMoveToNewFolder(name.trim(), ids());
+      },
+    }));
+    if (currentFolders.length) {
+      selectionMenu.append(menuItem({
+        label: 'Remove from folder',
+        iconName: 'close',
+        onPick: () => callbacks.onMoveToFolder(ids(), null),
+      }));
+    }
+    selectionMenu.hidden = false;
+    selectionMoveBtn.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeSelectionMenu() {
+    selectionMenu.hidden = true;
+    selectionMoveBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  function renderSelectionBar() {
+    const count = currentSelected.size;
+    selectionBar.hidden = count === 0;
+    // While selecting, every card keeps its checkbox visible instead of
+    // hover-only, so the selection surface is obvious.
+    shell.classList.toggle('has-selection', count > 0);
+    if (!count) { closeSelectionMenu(); return; }
+    selectionCount.textContent = `${ count } selected`;
+  }
+
+  // ── Folder chips ──────────────────────────────────────────────────────
+  function folderChip({ folder = null, count, active }) {
+    const isAll = folder === null;
+    const chip = document.createElement('div');
+    chip.className = `landing-folder-chip${ active ? ' is-active' : '' }${ isAll ? ' is-all' : '' }`;
+    chip.dataset.folderId = folder?.id ?? '';
+
+    const main = document.createElement('button');
+    main.type = 'button';
+    main.className = 'landing-folder-chip-main';
+    main.setAttribute('aria-pressed', String(active));
+    main.innerHTML = `
+      ${ isAll ? '' : icon('folder') }
+      <span class="landing-folder-chip-name">${ escapeHtml(isAll ? 'All projects' : folder.name) }</span>
+      <span class="landing-folder-chip-count">${ count }</span>
+    `;
+    main.onclick = () => callbacks.onSelectFolder(folder?.id ?? null);
+    chip.append(main);
+
+    if (!isAll) {
+      const tools = document.createElement('span');
+      tools.className = 'landing-folder-chip-tools';
+      tools.innerHTML = `
+        <button type="button" class="icon-button" data-action="rename-folder" title="Rename folder" aria-label="Rename folder ${ escapeHtml(folder.name) }">${ icon('rename') }</button>
+        <button type="button" class="icon-button is-danger" data-action="delete-folder" title="Delete folder" aria-label="Delete folder ${ escapeHtml(folder.name) }">${ icon('trash') }</button>
+      `;
+      tools.querySelector('[data-action="rename-folder"]').onclick = (event) => {
+        event.stopPropagation();
+        const next = prompt('Rename folder', folder.name);
+        if (next && next.trim()) callbacks.onRenameFolder(folder.id, next.trim());
+      };
+      tools.querySelector('[data-action="delete-folder"]').onclick = (event) => {
+        event.stopPropagation();
+        if (confirm(`Delete folder "${ folder.name }"? Projects inside are kept and return to All projects.`)) {
+          callbacks.onDeleteFolder(folder.id);
+        }
+      };
+      chip.append(tools);
+    }
+
+    // Drop target: filing projects by dragging cards onto the chip. The All
+    // chip doubles as "remove from folder".
+    chip.addEventListener('dragover', (event) => {
+      if (![...event.dataTransfer.types].includes(DRAG_MIME)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      chip.classList.add('is-drop-target');
+    });
+    chip.addEventListener('dragleave', (event) => {
+      // Ignore transitions into the chip's own children — only clear the
+      // highlight when the pointer truly leaves the chip.
+      if (!(event.relatedTarget instanceof Node) || !chip.contains(event.relatedTarget)) {
+        chip.classList.remove('is-drop-target');
+      }
+    });
+    chip.addEventListener('drop', (event) => {
+      chip.classList.remove('is-drop-target');
+      const raw = event.dataTransfer.getData(DRAG_MIME);
+      if (!raw) return;
+      event.preventDefault();
+      try {
+        const ids = JSON.parse(raw);
+        if (Array.isArray(ids) && ids.length) callbacks.onMoveToFolder(ids, folder?.id ?? null);
+      } catch { /* Foreign drag payload — ignore. */ }
+    });
+
+    return chip;
+  }
+
+  function renderFolderRow(folders, recent, activeFolderId) {
+    folderRow.replaceChildren();
+    folderRow.append(folderChip({ folder: null, count: recent.length, active: activeFolderId == null }));
+    for (const folder of folders) {
+      const count = recent.filter((p) => (p.folderId ?? null) === folder.id).length;
+      folderRow.append(folderChip({ folder, count, active: activeFolderId === folder.id }));
+    }
+    const newFolderBtn = document.createElement('button');
+    newFolderBtn.type = 'button';
+    newFolderBtn.className = 'landing-folder-new';
+    newFolderBtn.innerHTML = `${ icon('plus') }<span>New folder</span>`;
+    newFolderBtn.onclick = () => {
+      const name = prompt('Folder name', 'New folder');
+      if (name && name.trim()) callbacks.onCreateFolder(name.trim());
+    };
+    folderRow.append(newFolderBtn);
+  }
+
+  // ── Multi-select + drag source on recent cards ────────────────────────
+  function cleanupDrag() {
+    shell.classList.remove('is-dragging-projects');
+    folderRow.querySelectorAll('.is-drop-target').forEach((chip) => chip.classList.remove('is-drop-target'));
+    dragPreviewEl?.remove();
+    dragPreviewEl = null;
+  }
+
+  function decorateRecentCard(card, project) {
+    const selected = currentSelected.has(project.id);
+    card.classList.toggle('is-selected', selected);
+
+    const checkbox = document.createElement('button');
+    checkbox.type = 'button';
+    checkbox.className = 'landing-card-select';
+    checkbox.setAttribute('role', 'checkbox');
+    checkbox.setAttribute('aria-checked', String(selected));
+    checkbox.setAttribute('aria-label', `Select ${ project.name }`);
+    checkbox.innerHTML = icon('check');
+    checkbox.onclick = (event) => {
+      event.stopPropagation();
+      callbacks.onToggleSelect(project.id);
+    };
+    card.append(checkbox);
+
+    // While a selection is active, the whole card toggles membership instead
+    // of opening the editor — same pattern as file managers and Canva.
+    card.querySelector('.landing-card-body').onclick = () => {
+      if (currentSelected.size) callbacks.onToggleSelect(project.id);
+      else callbacks.onOpenProject(project.id);
+    };
+
+    card.draggable = true;
+    card.addEventListener('dragstart', (event) => {
+      const ids = currentSelected.has(project.id) ? [...currentSelected] : [project.id];
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData(DRAG_MIME, JSON.stringify(ids));
+      event.dataTransfer.setData('text/plain', ids.length === 1 ? project.name : `${ ids.length } projects`);
+      shell.classList.add('is-dragging-projects');
+      dragPreviewEl = document.createElement('div');
+      dragPreviewEl.className = 'landing-drag-preview';
+      dragPreviewEl.innerHTML = `${ icon('folder') }<span>${ escapeHtml(ids.length === 1 ? project.name : `${ ids.length } projects`) }</span>`;
+      document.body.append(dragPreviewEl);
+      event.dataTransfer.setDragImage(dragPreviewEl, 18, 18);
+    });
+    card.addEventListener('dragend', cleanupDrag);
+  }
+
+  function renderCards(gridEl, cards, kind, emptyText) {
     gridEl.replaceChildren();
     if (!cards.length) {
       const empty = document.createElement('div');
       empty.className = 'landing-empty';
-      empty.textContent = emptyMessage(kind);
+      empty.textContent = emptyText ?? emptyMessage(kind);
       gridEl.append(empty);
       return;
     }
-    for (const card of cards) gridEl.append(renderCard(card, kind, callbacks));
+    for (const card of cards) {
+      const el = renderCard(card, kind, callbacks);
+      if (kind === 'recent') decorateRecentCard(el, card);
+      gridEl.append(el);
+    }
   }
 
   return {
-    render({ recent, demos, trashed }) {
-      renderCards(recentGrid, recent, 'recent');
+    render({ recent, demos, trashed, folders = [], activeFolderId = null, selectedIds = new Set() }) {
+      currentFolders = folders;
+      currentSelected = selectedIds;
+      const filtered = activeFolderId == null
+        ? recent
+        : recent.filter((p) => (p.folderId ?? null) === activeFolderId);
+      renderFolderRow(folders, recent, activeFolderId);
+      renderCards(
+        recentGrid,
+        filtered,
+        'recent',
+        activeFolderId != null && !filtered.length
+          ? 'This folder is empty. Drag projects onto its chip, or use Move to folder.'
+          : undefined,
+      );
       renderCards(demosGrid, demos, 'demo');
       renderCards(trashGrid, trashed, 'trashed');
-      recentCount.textContent = recent.length === 1 ? '1 project' : `${ recent.length } projects`;
+      recentCount.textContent = activeFolderId == null
+        ? (recent.length === 1 ? '1 project' : `${ recent.length } projects`)
+        : `${ filtered.length } of ${ recent.length } project${ recent.length === 1 ? '' : 's' }`;
       trashCount.textContent = trashed.length ? `${ trashed.length } item${ trashed.length === 1 ? '' : 's' }` : 'Empty';
       trashEmptyBtn.hidden = !trashed.length;
+      renderSelectionBar();
     },
     showNotice({ message, level = 'info' }) {
       noticeEl.textContent = message;

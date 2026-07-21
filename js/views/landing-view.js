@@ -13,6 +13,11 @@ import { makeProgression, makeSettings } from '../state.js';
 export function createLandingView({ store, projectSettingsDialog }) {
   return {
     async mount(root) {
+      // Folder filter + multi-select state. Session-only by design: a page
+      // load always starts back at "All projects" with nothing selected.
+      let activeFolderId = null;
+      let selectedIds = new Set();
+
       const panel = mountLandingPanel({
         container: root,
         callbacks: {
@@ -75,6 +80,7 @@ export function createLandingView({ store, projectSettingsDialog }) {
           },
           onTrashProject: async (id) => {
             await tryStore(() => store.trashProject(id));
+            selectedIds.delete(id);
             await refresh();
           },
           onRestoreProject: async (id) => {
@@ -95,16 +101,59 @@ export function createLandingView({ store, projectSettingsDialog }) {
             }
             await refresh();
           },
+
+          // ── Folders + multi-select ────────────────────────────────────
+          onSelectFolder: async (folderId) => {
+            activeFolderId = folderId;
+            // Switching the filter drops the selection so a bulk action can
+            // never touch cards that are no longer visible.
+            selectedIds = new Set();
+            await refresh();
+          },
+          onCreateFolder: async (name) => {
+            await tryStore(() => store.createFolder(name));
+            await refresh();
+          },
+          onRenameFolder: async (id, name) => {
+            await tryStore(() => store.renameFolder(id, name));
+            await refresh();
+          },
+          onDeleteFolder: async (id) => {
+            await tryStore(() => store.deleteFolder(id));
+            if (activeFolderId === id) activeFolderId = null;
+            await refresh();
+          },
+          onToggleSelect: async (id) => {
+            if (selectedIds.has(id)) selectedIds.delete(id);
+            else selectedIds.add(id);
+            await refresh();
+          },
+          onClearSelection: async () => {
+            selectedIds = new Set();
+            await refresh();
+          },
+          onMoveToFolder: async (ids, folderId) => {
+            await tryStore(() => store.assignToFolder(ids, folderId));
+            selectedIds = new Set();
+            await refresh();
+          },
+          onMoveToNewFolder: async (name, ids) => {
+            const folder = await tryStore(() => store.createFolder(name));
+            if (folder) await tryStore(() => store.assignToFolder(ids, folder.id));
+            selectedIds = new Set();
+            await refresh();
+          },
         },
       });
 
       async function refresh() {
-        const [recent, demos, trashed] = await Promise.all([
+        const [recent, demos, trashed, folders] = await Promise.all([
           store.listProjects(),
           store.listDemos(),
           store.listTrashed(),
+          store.listFolders(),
         ]);
-        panel.render({ recent, demos, trashed });
+        panel.render({ recent, demos, trashed, folders, activeFolderId, selectedIds });
       }
 
       async function tryStore(fn) {
