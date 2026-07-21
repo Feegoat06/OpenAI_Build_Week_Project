@@ -196,6 +196,27 @@
     transform: translate(-50%, 0)
 }
 
+/* Edge-aware anchoring: JS flips these when Tenutino sits at the first or last
+   measure of a system so the bubble never spills off the stage. */
+.tenutino-root[data-bubble-align="left"] .tenutino-encouragement {
+    left: 0;
+    transform: translate(0, 4px)
+}
+
+.tenutino-root[data-bubble-align="left"].is-speaking .tenutino-encouragement {
+    transform: translate(0, 0)
+}
+
+.tenutino-root[data-bubble-align="right"] .tenutino-encouragement {
+    left: auto;
+    right: 0;
+    transform: translate(0, 4px)
+}
+
+.tenutino-root[data-bubble-align="right"].is-speaking .tenutino-encouragement {
+    transform: translate(0, 0)
+}
+
 .tenutino-root.is-dancing .tenutino-character {
     animation: tenutino-dance var(--tenutino-beat-ms) ease-in-out infinite
 }

@@ -180,81 +180,74 @@ export function renderNotation(container, segments, settings, chords = []) {
     };
   };
 
-  // Lay out at note boundaries, not only at barlines. If a dense measure does
-  // not entirely fit at the end of a system, its leading notes use that
-  // remaining room and its unfinished material continues on the next system.
-  // This keeps a zoomed-in score visually continuous instead of leaving an
-  // empty tail and moving the whole bar to a new row.
+  // Whole-measure layout. A measure is always engraved complete on a single
+  // system (never split across a line break), and every system holds the same
+  // number of measures so the grid stays stable when zooming in or out. The
+  // measures-per-system count is derived from the widest measure so no row can
+  // overflow regardless of which measures land on it.
   const systemWidth = width - 20;
   const FIRST_SYSTEM_PREFIX = 126; // clef + time signature + key signature
   const LATER_SYSTEM_PREFIX = 40;  // left/right breathing room around notes
   const MIN_STAVE_WIDTH = 230;
-  const MIN_FRAGMENT_WIDTH = 96;
-  const fragmentWidth = (fragment, beginsSystem) => Math.max(
-    fragment.startsMeasure && fragment.endsMeasure ? MIN_STAVE_WIDTH : MIN_FRAGMENT_WIDTH,
-    Math.ceil(fragment.minimumWidth + (beginsSystem ? FIRST_SYSTEM_PREFIX : LATER_SYSTEM_PREFIX)),
+  const FIRST_PREFIX_EXTRA = FIRST_SYSTEM_PREFIX - LATER_SYSTEM_PREFIX;
+
+  const wholeMeasures = measures.map((entry) => makeFragment(entry.measure, entry.entries, true, true));
+  const measureBaseWidth = (fragment) => Math.max(
+    MIN_STAVE_WIDTH,
+    Math.ceil(fragment.minimumWidth + LATER_SYSTEM_PREFIX),
   );
-  const systems = [];
-  let system = [];
-  let occupiedWidth = 0;
+  const baseWidths = wholeMeasures.map(measureBaseWidth);
 
-  for (const measure of measures) {
-    let entryIndex = 0;
-    while (entryIndex < measure.entries.length) {
-      const beginsSystem = system.length === 0;
-      let best = null;
-
-      // Choose the largest run of consecutive notes that fits the current
-      // system. Segment boundaries are already rhythmic boundaries from the
-      // compiler, so no duration is shortened or dropped by a line break.
-      for (let endIndex = entryIndex + 1; endIndex <= measure.entries.length; endIndex += 1) {
-        const fragment = makeFragment(
-          measure.measure,
-          measure.entries.slice(entryIndex, endIndex),
-          entryIndex === 0,
-          endIndex === measure.entries.length,
-        );
-        const requiredWidth = fragmentWidth(fragment, beginsSystem);
-        if (occupiedWidth + requiredWidth <= systemWidth || (beginsSystem && !best)) {
-          best = { fragment, endIndex, minimumWidth: Math.min(requiredWidth, systemWidth) };
-          continue;
-        }
-        break;
-      }
-
-      if (!best) {
-        systems.push(system);
-        system = [];
-        occupiedWidth = 0;
-        continue;
-      }
-
-      system.push(best);
-      occupiedWidth += best.minimumWidth;
-      entryIndex = best.endIndex;
-
-      // A measure that remains unfinished continues at the beginning of the
-      // next system, where it receives no artificial barline.
-      if (entryIndex < measure.entries.length) {
-        systems.push(system);
-        system = [];
-        occupiedWidth = 0;
-      }
+  // Width a system needs to hold the `count` measures starting at `start`
+  // (the first also carries the leading clef/key/time prefix).
+  const rowWidth = (start, count) => {
+    let total = FIRST_PREFIX_EXTRA;
+    for (let i = start; i < Math.min(start + count, baseWidths.length); i += 1) total += baseWidths[i];
+    return total;
+  };
+  // Every system carries the same measure count. Pick the largest count whose
+  // every actual row still fits, so an isolated dense measure only limits the
+  // rows that contain it rather than forcing the whole score to a worst-case
+  // single-measure grid.
+  const rowsFit = (count) => {
+    for (let start = 0; start < baseWidths.length; start += count) {
+      if (rowWidth(start, count) > systemWidth) return false;
     }
+    return true;
+  };
+  let measuresPerSystem = 1;
+  for (let count = baseWidths.length; count >= 1; count -= 1) {
+    if (rowsFit(count)) { measuresPerSystem = count; break; }
   }
-  if (system.length) systems.push(system);
 
-  // Stretch each completed system across the available width. This preserves
-  // readable minimum spacing while avoiding the empty right half of a row
-  // when a single dense bar forces its neighbour to the next line.
+  const systems = [];
+  for (let start = 0; start < wholeMeasures.length; start += measuresPerSystem) {
+    const row = wholeMeasures
+      .slice(start, start + measuresPerSystem)
+      .map((fragment, column) => ({
+        fragment,
+        minimumWidth: Math.min(
+          systemWidth,
+          baseWidths[start + column] + (column === 0 ? FIRST_PREFIX_EXTRA : 0),
+        ),
+      }));
+    systems.push(row);
+  }
+
+  // Justify every full system edge-to-edge so measures share the width evenly.
+  // A short final system keeps its natural measure widths instead of stretching
+  // a couple of bars across the whole row.
   const placements = [];
   systems.forEach((row, rowIndex) => {
+    const isFullRow = row.length === measuresPerSystem;
     const minimumTotal = row.reduce((total, item) => total + item.minimumWidth, 0);
-    const extraPerMeasure = (systemWidth - minimumTotal) / row.length;
+    const extraPerMeasure = isFullRow ? (systemWidth - minimumTotal) / row.length : 0;
     let x = 10;
     row.forEach((item, column) => {
       const isLast = column === row.length - 1;
-      const staveWidth = isLast ? 10 + systemWidth - x : item.minimumWidth + extraPerMeasure;
+      const staveWidth = (isFullRow && isLast)
+        ? 10 + systemWidth - x
+        : item.minimumWidth + extraPerMeasure;
       placements.push({
         ...item.fragment,
         column,

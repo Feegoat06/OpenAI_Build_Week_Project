@@ -275,6 +275,23 @@ export function mountTenutino({ container, scrollContainer, callbacks = {}, now 
     root.classList.remove('is-auto-scrolling');
   }
 
+  // The speech bubble is centered over Tenutino by default. At the left or
+  // right measure of a system the character hugs the stage edge, so a centered
+  // bubble would overflow and get clipped. Re-anchor it to whichever edge
+  // keeps it fully on-stage.
+  function updateBubbleAlignment() {
+    const width = container.clientWidth || 0;
+    if (!width) return;
+    const bubbleWidth = encouragement.offsetWidth || 200;
+    const half = bubbleWidth / 2;
+    const center = currentLeft + TENUTINO_SIZE / 2;
+    const margin = 8;
+    let align = 'center';
+    if (center - half < margin) align = 'left';
+    else if (center + half > width - margin) align = 'right';
+    root.dataset.bubbleAlign = align;
+  }
+
   function clampPosition(left, top) {
     const maxLeft = Math.max(0, container.clientWidth - TENUTINO_SIZE - 8);
     const contentBottom = layout.length ? Math.max(...layout.map((entry) => entry.staffTop + 54)) : container.clientHeight;
@@ -295,6 +312,7 @@ export function mountTenutino({ container, scrollContainer, callbacks = {}, now 
     root.style.top = `${ next.top }px`;
     currentLeft = next.left;
     currentTop = next.top;
+    updateBubbleAlignment();
     if (!animate) requestAnimationFrame(() => root.classList.remove('is-teleporting'));
     return duration;
   }
@@ -344,6 +362,7 @@ export function mountTenutino({ container, scrollContainer, callbacks = {}, now 
     root.style.setProperty('--tenutino-playback-y', `${ next.top - playbackBaseTop }px`);
     currentLeft = next.left;
     currentTop = next.top;
+    updateBubbleAlignment();
 
     if (previousMeasure !== playbackMeasure) {
       const targetTop = next.top * zoom;
@@ -357,6 +376,10 @@ export function mountTenutino({ container, scrollContainer, callbacks = {}, now 
   function say(message, duration = 2400) {
     clearTimeout(encouragementTimer);
     encouragement.textContent = message;
+    // Re-anchor now that the bubble has its real width. place() may have run
+    // the alignment while the bubble was still empty (offsetWidth ~0), which
+    // mis-centered the first comment against the stage edge.
+    updateBubbleAlignment();
     root.classList.add('is-speaking');
     encouragementTimer = setTimeout(() => root.classList.remove('is-speaking'), duration);
   }

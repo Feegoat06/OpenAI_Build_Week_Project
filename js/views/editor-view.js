@@ -255,6 +255,9 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
             selectedSeam = index;
             rerender({ type: 'seam', index });
           },
+          onExplainSeam(index) {
+            explainSeam(index, { mode: 'explain' });
+          },
           onGoHome() {
             navigate(LANDING_HASH);
           },
