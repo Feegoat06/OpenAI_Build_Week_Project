@@ -364,20 +364,12 @@ export function mountEditorPanel({ container, callbacks }) {
   }
 
   function makeEmptyState() {
-    // See css/editor-pane.css `.empty-state` for the treatment. The
-    // Tenutino SVG is a rough placeholder — the design handoff calls for a
-    // sourced illustration in the same abstract-line-art style before ship.
+    // See css/editor-pane.css `.empty-state` for the treatment.
     const el = document.createElement('div');
     el.className = 'empty-state';
     el.innerHTML = `
       <div class="empty-state-illustration" aria-hidden="true">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="50" cy="62" rx="26" ry="30" fill="currentColor"></ellipse>
-          <path d="M22 40 C20 26 32 12 50 12 C68 12 82 24 78 42 C82 34 74 52 68 46 C64 42 60 38 50 40 C40 42 32 46 32 48 C30 44 24 46 22 40 Z" fill="var(--panel-3)"></path>
-          <circle cx="42" cy="60" r="2" fill="var(--ink)"></circle>
-          <circle cx="58" cy="60" r="2" fill="var(--ink)"></circle>
-          <path d="M45 72 Q50 74 55 72" stroke="var(--ink)" stroke-width="1.6" fill="none" stroke-linecap="round"></path>
-        </svg>
+        <img src="/assets/tenutino/tenutino.png" alt="" draggable="false">
       </div>
       <div class="empty-state-copy">
         <h3 class="empty-state-headline">Tenutino is waiting.</h3>

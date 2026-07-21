@@ -347,6 +347,7 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
 
       function applyProjectSettings({ name, settings }) {
         const previous = progression.settings;
+        const tempoChanged = previous.tempo !== settings.tempo;
         const timeSigChanged = previous.timeSig.num !== settings.timeSig.num || previous.timeSig.den !== settings.timeSig.den;
         const keyChanged = previous.key !== settings.key;
         const clefChanged = previous.clef !== settings.clef;
@@ -374,7 +375,7 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
         // active pill and the meta pills re-read the accent-derived colors.
         // (Accent color itself cascades via CSS custom properties without a
         // rerender, but the segmented toggle stores its state in DOM classes.)
-        if (keyChanged || timeSigChanged || clefChanged || nameChanged || themeChanged) {
+        if (tempoChanged || keyChanged || timeSigChanged || clefChanged || nameChanged || themeChanged) {
           rerender();
         } else {
           scheduleAutosave();
@@ -415,7 +416,7 @@ export function createEditorView({ store, pianoDialog, projectSettingsDialog }) 
 
       // ── Coach / tutor flow ──────────────────────────────────────────
       function coachContextText() {
-        if (!progression.seams.length) return 'Add two chords to create a seam that LEGATO can explain.';
+        if (!progression.seams.length) return 'Add two chords to create a seam that Tenutino can explain.';
         const from = chordDisplayName(progression.chords[selectedSeam], progression.settings.key);
         const to = chordDisplayName(progression.chords[selectedSeam + 1], progression.settings.key);
         const technique = progression.seams[selectedSeam] ? TECHNIQUES[progression.seams[selectedSeam]].name : 'Direct transition';

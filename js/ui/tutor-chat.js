@@ -296,6 +296,11 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
     open('ask', { focusComposer: true });
   }
 
+  function closeOnOutsidePointerDown(event) {
+    if (!drawer.classList.contains('is-open') || container.contains(event.target)) return;
+    close();
+  }
+
   function submitMessage(event) {
     event.preventDefault();
     const message = input.value.trim();
@@ -307,6 +312,7 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
 
   closeButton.addEventListener('click', close);
   opener.addEventListener('click', openFromOpener);
+  document.addEventListener('pointerdown', closeOnOutsidePointerDown);
   form.addEventListener('submit', submitMessage);
   input.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -377,6 +383,7 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
     destroy() {
       closeButton.removeEventListener('click', close);
       opener.removeEventListener('click', openFromOpener);
+      document.removeEventListener('pointerdown', closeOnOutsidePointerDown);
       form.removeEventListener('submit', submitMessage);
       lessonEl.removeEventListener('click', handleLessonClick);
       container.replaceChildren();
