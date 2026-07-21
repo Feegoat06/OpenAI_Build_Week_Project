@@ -34,6 +34,14 @@ const MODES = {
 
 const MAX_HISTORY = 40;
 
+/**
+ * Explain and Suggestions describe the one-click starter request only. Once a
+ * learner writes their own message, Tenutino should answer conversationally.
+ */
+export function modeForComposerSubmission(_launchMode = 'ask') {
+  return 'ask';
+}
+
 function validHistoryEntry(entry) {
   if (!entry || !['user', 'assistant'].includes(entry.role)) return false;
   if (typeof entry.content === 'string') return true;
@@ -206,6 +214,15 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
     scrollToLatest();
   }
 
+  function setMode(nextMode) {
+    mode = MODES[nextMode] ? nextMode : 'ask';
+    const copy = MODES[mode];
+    modeEl.textContent = copy.eyebrow;
+    titleEl.textContent = copy.title;
+    input.placeholder = copy.placeholder;
+    syncEmptyState();
+  }
+
   function clearTransient() {
     loadingEl?.remove();
     errorEl?.remove();
@@ -227,13 +244,8 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
 
   function open(nextMode = 'ask', { context, focusComposer = false } = {}) {
     if (playbackActive) return;
-    mode = MODES[nextMode] ? nextMode : 'ask';
-    const copy = MODES[mode];
-    modeEl.textContent = copy.eyebrow;
-    titleEl.textContent = copy.title;
-    input.placeholder = copy.placeholder;
+    setMode(nextMode);
     if (context != null) contextEl.textContent = context;
-    syncEmptyState();
     drawer.classList.add('is-open');
     drawer.setAttribute('aria-hidden', 'false');
     opener.classList.add('is-hidden');
@@ -260,6 +272,7 @@ export function mountTutorChat({ container, callbacks = {}, storageKey = '' }) {
     const message = input.value.trim();
     if (!message) return;
     input.value = '';
+    setMode(modeForComposerSubmission(mode));
     append('user', message);
     callbacks.onSubmit?.({ message, mode });
   }
