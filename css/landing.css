@@ -117,6 +117,16 @@
     color: var(--accent)
 }
 
+.landing-secondary:disabled {
+    cursor: not-allowed;
+    opacity: .45
+}
+
+.landing-secondary:disabled:hover {
+    border-color: var(--hairline);
+    color: var(--tan)
+}
+
 .landing-notice {
     margin: 16px 0 0;
     padding: 12px 16px;

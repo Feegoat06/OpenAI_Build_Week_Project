@@ -4,7 +4,7 @@
  * The single page a user lands on when opening the app (unless the router's
  * time-guarded resume sends them straight back into the editor). Sections:
  *
- *   1. Actions row        — New project, Import…, Export all.
+ *   1. Actions row        — New project, Import…, Export all, Export selected.
  *   2. Recent projects    — user's active projects, sorted by updatedAt desc,
  *                            organized through folder filter chips. Cards can
  *                            be multi-selected (hover checkbox) and moved to
@@ -35,11 +35,12 @@ const TEMPLATE = `
 
     <section class="landing-section" aria-labelledby="landing-recent-title">
       <div class="landing-section-head">
-        <h2 id="landing-recent-title" class="section-heading">Recent projects</h2>
+        <h2 id="landing-recent-title" class="section-heading">Your Creations</h2>
         <span id="landing-recent-count" class="landing-count"></span>
         <div class="landing-section-utilities">
           <button id="landing-import" class="landing-secondary" type="button">Import…</button>
           <button id="landing-export-all" class="landing-secondary" type="button">Export all</button>
+          <button id="landing-export-selected" class="landing-secondary" type="button" disabled>Export Selected</button>
           <input id="landing-import-file" type="file" accept="application/json,.json" hidden />
         </div>
         <div class="landing-section-actions">
@@ -98,6 +99,7 @@ export function mountLandingPanel({ container, callbacks }) {
   const importBtn = shell.querySelector('#landing-import');
   const importInput = shell.querySelector('#landing-import-file');
   const exportAllBtn = shell.querySelector('#landing-export-all');
+  const exportSelectedBtn = shell.querySelector('#landing-export-selected');
   const noticeEl = shell.querySelector('#landing-notice');
   const folderRow = shell.querySelector('#landing-folder-row');
   const recentGrid = shell.querySelector('#landing-recent-grid');
@@ -124,6 +126,7 @@ export function mountLandingPanel({ container, callbacks }) {
   newBtn.onclick = () => callbacks.onNewProject();
   importBtn.onclick = () => importInput.click();
   exportAllBtn.onclick = () => callbacks.onExportAll();
+  exportSelectedBtn.onclick = () => callbacks.onExportSelected([...currentSelected]);
   importInput.onchange = async (event) => {
     const file = event.target.files?.[0];
     importInput.value = '';
@@ -199,6 +202,7 @@ export function mountLandingPanel({ container, callbacks }) {
   function renderSelectionBar() {
     const count = currentSelected.size;
     selectionBar.hidden = count === 0;
+    exportSelectedBtn.disabled = count === 0;
     // While selecting, every card keeps its checkbox visible instead of
     // hover-only, so the selection surface is obvious.
     shell.classList.toggle('has-selection', count > 0);

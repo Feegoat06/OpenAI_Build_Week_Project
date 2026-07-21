@@ -63,6 +63,15 @@ export function createLandingView({ store, projectSettingsDialog }) {
               panel.showNotice({ message: error.message, level: 'error' });
             }
           },
+          onExportSelected: async (ids) => {
+            try {
+              const { blob, filename, count } = await store.exportProjects(ids);
+              if (!count) { panel.showNotice({ message: 'No selected projects to export.', level: 'warn' }); return; }
+              downloadBlob(blob, filename);
+            } catch (error) {
+              panel.showNotice({ message: error.message, level: 'error' });
+            }
+          },
           onOpenProject: (id) => {
             navigate(editorHash(id));
           },
