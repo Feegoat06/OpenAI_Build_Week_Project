@@ -177,12 +177,8 @@ function renderAccentPicker(dialog) {
     btn.dataset.accent = preset.hex;
     btn.setAttribute('role', 'radio');
     btn.setAttribute('aria-checked', 'false');
-    btn.setAttribute('aria-label', `${ preset.name } · ${ preset.mood }`);
-    btn.innerHTML = `
-      <span class="accent-swatch-dot" style="background:${ preset.hex }"></span>
-      <span class="accent-swatch-name">${ preset.name }</span>
-      <span class="accent-swatch-mood">${ preset.mood }</span>
-    `;
+    btn.setAttribute('aria-label', preset.name);
+    btn.style.background = preset.hex;
     container.appendChild(btn);
   });
 }

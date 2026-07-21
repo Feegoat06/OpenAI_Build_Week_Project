@@ -285,52 +285,25 @@
 }
 
 .accent-picker {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
 }
 
 .accent-swatch {
     --swatch-ring: transparent;
-    display: grid;
-    gap: 7px;
-    min-width: 0;
-    padding: 10px 10px 12px;
-    background: var(--panel-3);
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 50%;
     border: 2px solid var(--swatch-ring);
-    border-radius: var(--radius-cell);
+    box-shadow: 0 0 0 2px var(--panel);
     cursor: pointer;
-    text-align: left;
-    transition: border-color .15s ease, background .15s ease;
-    color: inherit;
-    font: inherit;
+    transition: transform .15s ease, box-shadow .15s ease;
 }
 
 .accent-swatch:hover {
-    background: var(--panel-4);
-}
-
-.accent-swatch-dot {
-    width: 25px;
-    height: 25px;
-    border-radius: 50%;
-    display: block;
-}
-
-.accent-swatch-name {
-    color: var(--ivory);
-    font: 600 .72rem var(--font-body);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.accent-swatch-mood {
-    color: var(--tan-dim);
-    font: 500 var(--fs-label) var(--font-body);
-    text-transform: uppercase;
-    letter-spacing: .08em;
-    font-size: .55rem;
+    transform: scale(1.08);
 }
 
 /* .chord-font-toggle / .chord-font-option styles live in css/base.css. */
@@ -417,10 +390,5 @@
     .key-dial-readout {
         justify-items: center;
         text-align: center;
-    }
-
-    /* 5 swatches wrap to a compact 3+2 grid on narrow screens. */
-    .accent-picker {
-        grid-template-columns: repeat(3, 1fr);
     }
 }
